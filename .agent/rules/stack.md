@@ -5,31 +5,29 @@ trigger: always_on
 # Technology Stack
 
 ## Core
-- **Language**: Lua 5.1 / JIT (Standard for LÖVE)
-- **Engine**: [LÖVE (Love2d)](https://love2d.org/) 11.4+
+- **Language**: Lua 5.1 / JIT
+- **Engine**: LÖVE 11.4+
 
-## Libraries
-Libraries should be placed in the `libs/` directory.
-
+## Essential Libraries
 - **ECS**: [Concord](https://github.com/Tjakka5/Concord)
-    - *Purpose*: Entity Component System framework.
+- **Collision**: [bump.lua](https://github.com/kikito/bump.lua)
 - **Input**: [Baton](https://github.com/tesselode/baton)
-    - *Purpose*: Input mapping and handling.
-- **Tweens**: [Flux](https://github.com/rxi/flux)
-    - *Purpose*: Tweening library.
-- **Collision**: [HardonCollider](https://github.com/vrld/HC)
-    - *Purpose*: Spatial hashing and collision detection.
-- **Camera**: [STALKER-X](https://github.com/adnzzzzZ/STALKER-X)
-    - *Purpose*: Camera with shake, follow, etc.
-- **GUI**: [Luis](https://github.com/SiENcE/luis)
-    - *Purpose*: User Interface.
 - **State Management**: [hump.gamestate](https://github.com/vrld/hump)
-    - *Purpose*: Finite state machine for game screens (Menu, Play, Pause).
-- **Asset/Data Management**: [Cargo](https://github.com/bjornbytes/cargo)
-    - *Purpose*: Asset loader (images, sounds, etc.) as a Lua table.
+- **Asset Loading**: [Cargo](https://github.com/bjornbytes/cargo)
+- **Tweening**: [flux](https://github.com/rxi/flux)
+- **Timer**: [hump.timer](https://github.com/vrld/hump)
 
-## Directory Structure
-- `libs/`: External libraries.
-- `assets/`: Game assets (managed by Cargo).
-- `components/`: ECS Components.
-- `systems/`: ECS Systems.
+## Utilities
+- **Utilities**: [lume](https://github.com/rxi/lume)
+- **Logging**: [log.lua](https://github.com/rxi/log.lua)
+- **Serialization**: [binser](https://github.com/bakpakin/binser)
+- **Unit Testing**: [lust](https://github.com/bjornbytes/lust)
+
+## Rendering
+- **Camera**: [gamera](https://github.com/kikito/gamera)
+- **GUI**: Custom (follows system pattern)
+
+## Procedural Generation
+- **Noise**: [love2d-noise] (https://github.com/25A0/love2d-noise)
+- **Pathfinding**: [jumper](https://github.com/Yonaba/Jumper)
+- **RNG**: Lua built-in math.random with seed management
