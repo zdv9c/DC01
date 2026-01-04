@@ -5,8 +5,8 @@ trigger: always_on
 # Project Specifications
 
 ## Overview
-An initially simple and small-scope, but modular, and highly scalable top-down action RPG.
-Development will proceed via iterating increasingly complex vertical slices by gradually adding new features.
+An evolving vertical slice composed of various action, adventure, RPG, and dungeon crawler-like features and mechanics.
+Development proceeds via iterating increasingly complex vertical slices by gradually adding new features.
 
 ## Technical Specifications
 
@@ -16,18 +16,26 @@ Development will proceed via iterating increasingly complex vertical slices by g
 - **Grid**: 16x16 layout
 
 ### Gameplay Mechanics
-- **Movement**: Top-down inertial movement.
-- **Collision**: Bump and slide.
+- **Movement**: Top-down inertial movement with friction and speed clamping
+- **Collision**: Bump and slide using HardonCollider (MTV separation + velocity projection)
+- **Camera**: Player-following STALKER-X camera with TOPDOWN style and smooth lerp
 - **Entities**:
-  - Player: Controlled by Input.
-  - Actors: Identical to player, controlled by AI.
-  - Blocks: 16x16 entities for collision testing.
+  - Player: Controlled by input, camera follows
+  - Actors: Identical to player, controlled by AI (future)
+  - Blocks: 16x16 static colliders
 
 ### World
-- **Map**: Basic infinite map.
-- **Visuals**: Checkerboard of grey and black 16x16 tiles.
+- **Map**: Infinite checkerboard rendered relative to camera
+- **Visuals**: Dark/light grey 16x16 tile pattern
 
 ### Rendering
 - **Placeholders**:
-  - Entities: 16x16 solid color fill circles.
-  - Debug Coloring: Use a debug color component to color entities based on their type.
+  - Entities: 16x16 solid color circles
+  - Player: Green, Enemy: Red, Blocks: Grey
+- **Camera**: STALKER-X camera with attach/detach for world-space rendering
+
+### Architecture
+- **ECS Framework**: Concord
+- **Pattern**: Shell/Orchestrator/Pure Function layers
+- **Components**: Individual files in `components/`
+- **Systems**: Named `system_*.lua`, ordered: Input → Movement → Collision → Camera → Rendering
