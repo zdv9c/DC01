@@ -1,7 +1,7 @@
 --[[============================================================================
   SYSTEM: Collision
   
-  PURPOSE: Manages HardonCollider shapes and resolves collisions with bump/slide
+  PURPOSE: Manages bump.lua collision detection and resolves collisions with slide response
   
   DATA CONTRACT:
     READS:  Transform, Collider, Velocity (optional)
@@ -13,7 +13,7 @@
 ============================================================================]]--
 
 local Concord = require "libs.Concord"
-local HC = require "libs.HC"
+local bump = require "libs.bump.bump"
 
 local collision = Concord.system({
   pool = {"Transform", "Collider"}
@@ -24,11 +24,15 @@ local collision = Concord.system({
 ----------------------------------------------------------------------------]]--
 
 function collision:init()
-  self.hc = HC.new()
-  self.shapes = {}  -- entity -> shape mapping
+  -- Create bump world with 16px cell size (matches tile size)
+  self.bump_world = bump.newWorld(16)
+  
+  -- Track which entities have been added to bump world
+  self.tracked_entities = {}
+  
   self.logfile = io.open("collision_log.txt", "w")
   if self.logfile then
-    self.logfile:write("Collision system initialized\n")
+    self.logfile:write("Collision system initialized with bump.lua\n")
     self.logfile:flush()
   end
 end
@@ -42,161 +46,154 @@ function collision:log(msg)
   print(msg)
 end
 
--- Creates a shape for an entity if one doesn't exist
-function collision:ensureShape(entity)
-  if self.shapes[entity] then
-    return self.shapes[entity]
-  end
-  
-  local pos = entity.Transform
-  local col = entity.Collider
-  
-  -- Create rectangle shape centered on entity position
-  local shape = self.hc:rectangle(
-    pos.x - col.width / 2,
-    pos.y - col.height / 2,
-    col.width,
-    col.height
-  )
-  
-  shape.entity = entity
-  self.shapes[entity] = shape
-  
-  self:log(string.format("[COLLISION] Created shape for entity at (%.1f, %.1f) size %dx%d type=%s", 
-    pos.x, pos.y, col.width, col.height, col.type))
-  
-  return shape
+-- Filter function for bump collisions
+-- Returns collision type for each collision pair
+local function collision_filter(item, other)
+  -- Use "slide" response for all collisions
+  -- This creates bump-and-slide behavior
+  return "slide"
 end
 
 function collision:update(dt)
-  -- Phase 1: Ensure shapes exist and sync with transforms
+  -- Phase 1: Ensure all entities are added to bump world
+  for _, entity in ipairs(self.pool) do
+    if not self.tracked_entities[entity] then
+      local pos = entity.Transform
+      local col = entity.Collider
+      
+      -- Add entity to bump world
+      self.bump_world:add(entity, 
+        pos.x - col.width / 2,
+        pos.y - col.height / 2,
+        col.width,
+        col.height)
+      
+      self.tracked_entities[entity] = true
+      
+      self:log(string.format("[COLLISION] Added entity to bump world at (%.1f, %.1f) size %dx%d type=%s", 
+        pos.x, pos.y, col.width, col.height, col.type))
+    end
+  end
+  
+  -- Phase 2: Reset collision flags
   for _, entity in ipairs(self.pool) do
     local col = entity.Collider
     col.colliding = false
     col.collision_count = 0
-    
-    local shape = self:ensureShape(entity)
-    local pos = entity.Transform
-    
-    shape:moveTo(pos.x, pos.y)
   end
   
-  -- Phase 2: Resolve collisions for dynamic entities
+  -- Phase 3: Process dynamic entities with collision resolution
   for _, entity in ipairs(self.pool) do
     local col = entity.Collider
-    local shape = self.shapes[entity]
     
-    -- Only resolve for dynamic entities
-    if col.type == "dynamic" and shape then
+    if col.type == "dynamic" then
       local pos = entity.Transform
       local vel = entity.Velocity
       
-      local collisions = self.hc:collisions(shape)
+      -- Calculate goal position (where entity wants to be)
+      local goal_x = pos.x - col.width / 2
+      local goal_y = pos.y - col.height / 2
       
-      -- Debug: count collisions
-      local count = 0
-      for _ in pairs(collisions) do count = count + 1 end
-      if count > 0 then
-        self:log(string.format("[COLLISION] Entity at (%.1f, %.1f) has %d collision(s)", pos.x, pos.y, count))
-      end
+      -- Use bump's move to handle collision resolution
+      local actual_x, actual_y, cols, len = self.bump_world:move(
+        entity, 
+        goal_x, 
+        goal_y, 
+        collision_filter
+      )
       
-      for other_shape, separating_vector in pairs(collisions) do
-        if other_shape ~= shape then
-          -- Mark both entities as colliding
-          col.colliding = true
-          col.collision_count = col.collision_count + 1
-          
-          if other_shape.entity then
-            local other_col = other_shape.entity.Collider
-            if other_col then
-              other_col.colliding = true
-              other_col.collision_count = other_col.collision_count + 1
-            end
-          end
-          
-          -- Extract current state
-          local vx = vel and vel.x or 0
-          local vy = vel and vel.y or 0
-          
-          -- Compute collision response
-          local result = compute_collision_response(
-            pos.x, pos.y,
-            vx, vy,
-            separating_vector.x, separating_vector.y
+      -- Update position based on actual result (after collision resolution)
+      pos.x = actual_x + col.width / 2
+      pos.y = actual_y + col.height / 2
+      
+      -- Process collisions
+      if len > 0 then
+        self:log(string.format("[COLLISION] Entity at (%.1f, %.1f) has %d collision(s)", pos.x, pos.y, len))
+        
+        col.colliding = true
+        col.collision_count = len
+        
+        -- Process velocity changes from collisions
+        if vel then
+          local result = compute_velocity_after_collisions(
+            vel.x, vel.y,
+            cols, len
           )
           
-          -- Apply separation
-          shape:move(separating_vector.x, separating_vector.y)
-          
-          -- Write results back
-          pos.x = result.px
-          pos.y = result.py
-          
-          if vel then
-            vel.x = result.vx
-            vel.y = result.vy
+          vel.x = result.vx
+          vel.y = result.vy
+        end
+        
+        -- Mark other entities as colliding too
+        for i = 1, len do
+          local other = cols[i].other
+          if other.Collider then
+            other.Collider.colliding = true
+            other.Collider.collision_count = other.Collider.collision_count + 1
           end
         end
       end
+    end
+  end
+  
+  -- Phase 4: Update static entities (no collision resolution)
+  for _, entity in ipairs(self.pool) do
+    local col = entity.Collider
+    
+    if col.type == "static" then
+      local pos = entity.Transform
+      
+      -- Update position in bump world (no collision resolution needed)
+      self.bump_world:update(
+        entity,
+        pos.x - col.width / 2,
+        pos.y - col.height / 2
+      )
     end
   end
 end
 
 function collision:draw()
   -- Debug draw (commented out for performance)
-  -- for _, shape in pairs(self.shapes) do
-  --   shape:draw("line")
-  -- end
+  -- Could visualize bump world cells or entity rects here
 end
 
 --[[----------------------------------------------------------------------------
   ORCHESTRATION LAYER - Pure Coordination
 ----------------------------------------------------------------------------]]--
 
--- Computes new position and velocity after collision resolution
--- Implements bump (separation) and slide (velocity projection)
--- @param px: number - current position x
--- @param py: number - current position y
+-- Computes velocity after processing all collision normals
+-- Removes velocity components that point into collision surfaces
 -- @param vx: number - current velocity x
 -- @param vy: number - current velocity y
--- @param sep_x: number - separation vector x (MTV)
--- @param sep_y: number - separation vector y (MTV)
--- @return {px, py, vx, vy: number}
-function compute_collision_response(px, py, vx, vy, sep_x, sep_y)
-  -- Apply separation to position
-  local new_px = px + sep_x
-  local new_py = py + sep_y
+-- @param cols: table - array of collision info from bump
+-- @param len: number - number of collisions
+-- @return {vx: number, vy: number}
+function compute_velocity_after_collisions(vx, vy, cols, len)
+  local result_vx = vx
+  local result_vy = vy
   
-  -- Calculate collision normal from separation vector
-  local normal = normalize_vector(sep_x, sep_y)
-  
-  -- Project velocity onto collision normal and remove that component
-  -- This creates the "slide" effect
-  local slide_result = project_velocity_for_slide(vx, vy, normal.x, normal.y)
+  -- Process each collision's normal to adjust velocity
+  for i = 1, len do
+    local col = cols[i]
+    local nx = col.normal.x
+    local ny = col.normal.y
+    
+    -- Project velocity to remove component going into surface
+    local projected = project_velocity_for_slide(result_vx, result_vy, nx, ny)
+    result_vx = projected.vx
+    result_vy = projected.vy
+  end
   
   return {
-    px = new_px,
-    py = new_py,
-    vx = slide_result.vx,
-    vy = slide_result.vy
+    vx = result_vx,
+    vy = result_vy
   }
 end
 
 --[[----------------------------------------------------------------------------
   PURE FUNCTIONS - Math & Logic
 ----------------------------------------------------------------------------]]--
-
--- Normalizes a vector to unit length
--- @param x: number - vector x
--- @param y: number - vector y
--- @return {x: number, y: number}
-function normalize_vector(x, y)
-  local len = math.sqrt(x * x + y * y)
-  if len == 0 then
-    return {x = 0, y = 0}
-  end
-  return {x = x / len, y = y / len}
-end
 
 -- Projects velocity for sliding along a surface
 -- Removes velocity component in the direction of the collision normal

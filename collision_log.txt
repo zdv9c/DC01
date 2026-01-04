@@ -1,28 +1,48 @@
-Collision system initialized
-[COLLISION] Created shape for entity at (100.0, 100.0) size 16x16 type=dynamic
-[COLLISION] Created shape for entity at (200.0, 200.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (216.0, 200.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (232.0, 200.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (248.0, 200.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (248.0, 216.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (248.0, 232.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (300.0, 100.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (300.0, 116.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (300.0, 132.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (300.0, 148.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (300.0, 300.0) size 16x16 type=dynamic
-[COLLISION] Entity at (221.0, 185.2) has 2 collision(s)
-[COLLISION] Entity at (221.1, 184.0) has 2 collision(s)
-[COLLISION] Entity at (221.1, 184.2) has 2 collision(s)
-[COLLISION] Entity at (221.1, 184.0) has 2 collision(s)
-[COLLISION] Entity at (221.1, 184.2) has 2 collision(s)
-[COLLISION] Entity at (221.2, 184.4) has 2 collision(s)
-[COLLISION] Entity at (221.2, 184.3) has 2 collision(s)
-[COLLISION] Entity at (221.2, 184.4) has 2 collision(s)
-[COLLISION] Entity at (221.2, 184.3) has 2 collision(s)
-[COLLISION] Entity at (221.7, 184.2) has 2 collision(s)
-[COLLISION] Entity at (222.6, 184.2) has 2 collision(s)
-[COLLISION] Entity at (284.2, 148.4) has 1 collision(s)
-[COLLISION] Entity at (284.2, 147.3) has 2 collision(s)
-[COLLISION] Entity at (284.3, 145.4) has 2 collision(s)
-[COLLISION] Entity at (284.0, 143.3) has 2 collision(s)
+Collision system initialized with bump.lua
+[COLLISION] Added entity to bump world at (100.0, 100.0) size 16x16 type=dynamic
+[COLLISION] Added entity to bump world at (200.0, 200.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (216.0, 200.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (232.0, 200.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (248.0, 200.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (248.0, 216.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (248.0, 232.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (300.0, 100.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (300.0, 116.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (300.0, 132.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (300.0, 148.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (300.0, 300.0) size 16x16 type=dynamic
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.1, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.1, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.1, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.1, 184.0) has 1 collision(s)
+[COLLISION] Entity at (204.1, 184.0) has 1 collision(s)
+[COLLISION] Entity at (203.9, 184.0) has 1 collision(s)
+[COLLISION] Entity at (203.6, 184.0) has 1 collision(s)
+[COLLISION] Entity at (203.2, 184.0) has 1 collision(s)
+[COLLISION] Entity at (202.7, 184.0) has 1 collision(s)
+[COLLISION] Entity at (187.4, 184.0) has 1 collision(s)
+[COLLISION] Entity at (187.0, 184.0) has 1 collision(s)
+[COLLISION] Entity at (186.6, 184.0) has 1 collision(s)
+[COLLISION] Entity at (186.3, 184.0) has 1 collision(s)
+[COLLISION] Entity at (186.1, 184.0) has 1 collision(s)
+[COLLISION] Entity at (185.9, 184.0) has 1 collision(s)
+[COLLISION] Entity at (185.7, 184.0) has 1 collision(s)
+[COLLISION] Entity at (185.6, 184.0) has 1 collision(s)

@@ -17,8 +17,8 @@ Development proceeds via iterating increasingly complex vertical slices by gradu
 
 ### Gameplay Mechanics
 - **Movement**: Top-down inertial movement with friction and speed clamping
-- **Collision**: Bump and slide using HardonCollider (MTV separation + velocity projection)
-- **Camera**: Player-following STALKER-X camera with TOPDOWN style and smooth lerp
+- **Collision**: Bump and slide using bump.lua
+- **Camera**: Player-following gamera camera with TOPDOWN style
 - **Entities**:
   - Player: Controlled by input, camera follows
   - Actors: Identical to player, controlled by AI (future)
