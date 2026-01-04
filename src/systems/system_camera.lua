@@ -1,13 +1,13 @@
 --[[============================================================================
   SYSTEM: Camera
   
-  PURPOSE: Updates STALKER-X camera to follow entities with CameraTarget component
+  PURPOSE: Updates Gamera camera to follow entities with CameraTarget component
   
   DATA CONTRACT:
     READS:  Transform, CameraTarget
     WRITES: (none - updates external camera object)
     EMITS:  (none)
-    CONFIG: camera (STALKER-X camera instance)
+    CONFIG: camera (Gamera camera instance)
   
   UPDATE ORDER: After Collision, before Rendering
 ============================================================================]]--
@@ -37,19 +37,19 @@ function camera_system:update(dt)
   for _, entity in ipairs(self.pool) do
     local pos = entity.Transform
     
-    camera:follow(pos.x, pos.y)
+    -- Gamera uses setPosition instead of follow
+    camera:setPosition(pos.x, pos.y)
     break  -- Only follow first target
   end
   
-  -- Update camera (handles lerp, shake, etc.)
-  camera:update(dt)
+  -- Gamera doesn't need update() - it's stateless
 end
 
 --[[----------------------------------------------------------------------------
   ORCHESTRATION LAYER - Pure Coordination
 ----------------------------------------------------------------------------]]--
 
--- No orchestrators needed - camera logic is in STALKER-X library
+-- No orchestrators needed - camera logic is in Gamera library
 
 --[[----------------------------------------------------------------------------
   PURE FUNCTIONS - Math & Logic

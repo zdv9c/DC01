@@ -6,7 +6,7 @@
 
 local Concord = require "libs.Concord"
 local Gamestate = require "libs.hump.gamestate"
-local Camera = require "libs.stalker.Camera"
+local gamera = require "libs.gamera.gamera"
 
 local Play = {}
 
@@ -18,10 +18,10 @@ function Play:enter()
   -- Load components
   require "components.init"
   
-  -- Create camera
-  self.camera = Camera()
-  self.camera:setFollowStyle('TOPDOWN')
-  self.camera:setFollowLerp(0.1)
+  -- Create camera with world bounds centered around origin
+  -- gamera.new(left, top, width, height)
+  -- Using centered bounds so camera can freely move around (0,0)
+  self.camera = gamera.new(-1000, -1000, 2000, 2000)
   
   -- Create ECS world
   self.world = Concord.world()

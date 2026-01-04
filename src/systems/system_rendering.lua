@@ -7,7 +7,7 @@
     READS:  Transform, Sprite
     WRITES: (none - only draws)
     EMITS:  (none)
-    CONFIG: camera (STALKER-X camera instance)
+    CONFIG: camera (Gamera camera instance)
   
   UPDATE ORDER: Last (after all logic systems)
 ============================================================================]]--
@@ -35,17 +35,16 @@ function rendering:draw()
   -- Get camera from world resources
   local camera = self:getWorld():getResource("camera")
   
-  -- Draw background with camera transform
+  -- Gamera wraps all world-space rendering in a draw() callback
   if camera then
-    camera:attach()
-  end
-  
-  self:drawCheckerboard(camera)
-  self:drawEntities()
-  
-  if camera then
-    camera:detach()
-    camera:draw()  -- Draw camera effects (flash, fade)
+    camera:draw(function()
+      self:drawCheckerboard(camera)
+      self:drawEntities()
+    end)
+  else
+    -- Fallback: draw without camera
+    self:drawCheckerboard(nil)
+    self:drawEntities()
   end
 end
 
@@ -54,9 +53,8 @@ function rendering:drawCheckerboard(camera)
   local cam_w, cam_h = love.graphics.getDimensions()
   
   if camera then
-    -- Get camera bounds in world space
-    cam_x = camera.x - cam_w / 2
-    cam_y = camera.y - cam_h / 2
+    -- Get camera visible area in world space
+    cam_x, cam_y, cam_w, cam_h = camera:getVisible()
   end
   
   -- Calculate visible tile range
