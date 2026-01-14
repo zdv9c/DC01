@@ -104,7 +104,7 @@ trigger: always_on
 - Paths stored in Path component as array of positions, not as jumper object
 
 ### Anti-Patterns
-- ❌ Component storing library handle (e.g., `Shape {bump_shape}`)
+- ❌ Component storing library handle (e.g., `Shape {hc_shape}`)
 - ❌ Library callback modifying world state directly
 - ❌ System using library not declared in file header DATA CONTRACT
 - ❌ Global library state accessed from multiple systems
@@ -118,7 +118,9 @@ trigger: always_on
 All library state lives in world object:
 ```lua
 -- World initialization
-world.bump_world = bump.newWorld()
+world.hc_world = HC.new()
+world.hc_shapes = {}           -- entity_id -> shape mapping
+world.shape_to_entity = {}     -- shape -> entity mapping
 world.input = baton.new(input_config)
 world.assets = cargo.init(asset_manifest)
 world.flux = flux.group()
@@ -143,8 +145,8 @@ world.event_queue = {}
 Systems receive world, extract what they need:
 ```lua
 function collision.update(world, dt)
-  local bump_world = world.bump_world
-  -- Use bump_world...
+  local hc_world = world.hc_world
+  -- Use hc_world...
 end
 ```
 

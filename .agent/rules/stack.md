@@ -10,7 +10,7 @@ trigger: always_on
 
 ## Essential Libraries
 - **ECS**: [Concord](https://github.com/Tjakka5/Concord)
-- **Collision**: [bump.lua](https://github.com/kikito/bump.lua)
+- **Collision**: [HardonCollider](https://github.com/vrld/HC)
 - **Input**: [Baton](https://github.com/tesselode/baton)
 - **State Management**: [hump.gamestate](https://github.com/vrld/hump)
 - **Asset Loading**: [Cargo](https://github.com/bjornbytes/cargo)
@@ -28,6 +28,6 @@ trigger: always_on
 - **GUI**: Custom (follows system pattern)
 
 ## Procedural Generation
-- **Noise**: [love2d-noise] (https://github.com/25A0/love2d-noise)
+- **Noise**: [love2d-noise](https://github.com/25A0/love2d-noise)
 - **Pathfinding**: [jumper](https://github.com/Yonaba/Jumper)
 - **RNG**: Lua built-in math.random with seed management

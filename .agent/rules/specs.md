@@ -17,7 +17,7 @@ Development proceeds via iterating increasingly complex vertical slices by gradu
 
 ### Gameplay Mechanics
 - **Movement**: Top-down inertial movement with friction and speed clamping
-- **Collision**: Bump and slide using bump.lua
+- **Collision**: Bump and slide using HardonCollider (HC)
 - **Camera**: Player-following gamera camera with TOPDOWN style
 - **Entities**:
   - Player: Controlled by input, camera follows
