@@ -1,38 +1,23 @@
-Collision system initialized
-[COLLISION] Created shape for entity at (100.0, 100.0) size 16x16 type=dynamic
-[COLLISION] Created shape for entity at (200.0, 200.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (216.0, 200.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (232.0, 200.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (248.0, 200.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (248.0, 216.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (248.0, 232.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (300.0, 100.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (300.0, 116.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (300.0, 132.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (300.0, 148.0) size 16x16 type=static
-[COLLISION] Created shape for entity at (300.0, 300.0) size 16x16 type=dynamic
-[COLLISION] Entity at (190.7, 184.7) has 1 collision(s)
-[COLLISION] Entity at (190.8, 184.2) has 1 collision(s)
-[COLLISION] Entity at (190.9, 184.2) has 1 collision(s)
-[COLLISION] Entity at (190.9, 184.2) has 1 collision(s)
-[COLLISION] Entity at (191.0, 184.2) has 1 collision(s)
-[COLLISION] Entity at (191.0, 184.2) has 1 collision(s)
-[COLLISION] Entity at (191.1, 184.2) has 1 collision(s)
-[COLLISION] Entity at (191.1, 184.0) has 1 collision(s)
-[COLLISION] Entity at (191.1, 184.0) has 1 collision(s)
-[COLLISION] Entity at (191.1, 184.0) has 1 collision(s)
-[COLLISION] Entity at (191.2, 184.0) has 1 collision(s)
-[COLLISION] Entity at (191.2, 184.0) has 1 collision(s)
-[COLLISION] Entity at (191.2, 184.0) has 1 collision(s)
-[COLLISION] Entity at (191.2, 184.0) has 1 collision(s)
-[COLLISION] Entity at (191.2, 184.0) has 1 collision(s)
-[COLLISION] Entity at (191.2, 184.0) has 1 collision(s)
-[COLLISION] Entity at (191.0, 184.0) has 1 collision(s)
-[COLLISION] Entity at (190.6, 184.0) has 1 collision(s)
-[COLLISION] Entity at (190.0, 184.0) has 1 collision(s)
-[COLLISION] Entity at (189.3, 184.0) has 1 collision(s)
-[COLLISION] Entity at (188.4, 184.0) has 1 collision(s)
-[COLLISION] Entity at (187.5, 184.0) has 1 collision(s)
-[COLLISION] Entity at (186.5, 184.0) has 1 collision(s)
-[COLLISION] Entity at (185.3, 184.0) has 1 collision(s)
-[COLLISION] Entity at (184.4, 184.0) has 1 collision(s)
+Collision system initialized with bump.lua
+[COLLISION] Added entity to bump world at (100.0, 100.0) size 16x16 type=dynamic
+[COLLISION] Added entity to bump world at (200.0, 200.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (216.0, 200.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (232.0, 200.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (248.0, 200.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (248.0, 216.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (248.0, 232.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (300.0, 100.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (300.0, 116.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (300.0, 132.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (300.0, 148.0) size 16x16 type=static
+[COLLISION] Added entity to bump world at (300.0, 300.0) size 16x16 type=dynamic
+[COLLISION] Entity at (284.0, 142.6) has 1 collision(s)
+[COLLISION] Entity at (284.0, 142.6) has 1 collision(s)
+[COLLISION] Entity at (284.0, 142.6) has 1 collision(s)
+[COLLISION] Entity at (284.0, 142.6) has 1 collision(s)
+[COLLISION] Entity at (284.0, 142.6) has 1 collision(s)
+[COLLISION] Entity at (284.0, 142.6) has 1 collision(s)
+[COLLISION] Entity at (284.0, 142.6) has 1 collision(s)
+[COLLISION] Entity at (284.0, 142.6) has 1 collision(s)
+[COLLISION] Entity at (284.0, 142.6) has 1 collision(s)
+[COLLISION] Entity at (284.0, 142.6) has 1 collision(s)
