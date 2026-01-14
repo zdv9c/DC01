@@ -56,7 +56,8 @@ end
 -- @param x: number
 -- @return integer
 local function fast_floor(x)
-  return x > 0 and math.floor(x) or math.floor(x) - 1
+  local floored = math.floor(x)
+  return floored
 end
 
 -- Creates a new noise generator

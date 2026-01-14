@@ -6,8 +6,8 @@ local simplex = require("libs.cbs.simplex")
 
 local behaviors = {}
 
--- Simplex noise generator (shared for all wander behaviors)
-local noise_gen = simplex.new(12345)
+-- Cached noise generators by seed (lazy initialization)
+local noise_generators = {}
 
 -- Adds seek interest - maximizes movement toward target
 -- @param ctx: context
@@ -78,13 +78,20 @@ end
 -- @param ctx: context
 -- @param forward_direction: vec2 - agent's current forward direction
 -- @param noise_cursor: number - current noise position
--- @param params: table - {noise_scale, angle_range, weight}
+-- @param params: table - {noise_scale, angle_range, weight, seed}
 -- @return number - new noise cursor value
 function behaviors.add_wander(ctx, forward_direction, noise_cursor, params)
   params = params or {}
   local noise_scale = params.noise_scale or 0.1
   local angle_range = params.angle_range or math.pi / 4  -- ±45 degrees
   local weight = params.weight or 1.0
+  local seed = params.seed or 0
+
+  -- Get or create noise generator for this seed
+  if not noise_generators[seed] then
+    noise_generators[seed] = simplex.new(seed)
+  end
+  local noise_gen = noise_generators[seed]
 
   -- Sample noise to get angular offset
   local noise_value = simplex.noise2D(noise_gen, noise_cursor * noise_scale, 0)
