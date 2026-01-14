@@ -18,12 +18,15 @@ trigger: always_on
 - Systems: Shell pattern only (query → compute → write)
 - World: Pass explicitly, never store globally
 
-**bump.lua (Collision)**:
-- Only collision system touches bump world
-- Entity ID is bump item identifier
-- Shell calls `bump:move()`, processes returned collisions
-- No callbacks, no implicit collision resolution
-- Collision shapes stored in world.bump_world, not components
+**HardonCollider (Collision)**:
+- Only collision system touches HC world
+- Shapes stored in world.hc_shapes[entity_id], NEVER in components
+- Shape-to-entity mapping in world.shape_to_entity[shape]
+- NEVER use HC callbacks (on_collision, on_separate) - PROHIBITED
+- Query collisions via world.hc_world:collisions() once per frame
+- Shell processes collision pairs, emits events
+- Collision response computed in orchestrators, never in HC callbacks
+- HC world updated in collision system only
 
 **Baton (Input)**:
 - Only input system reads Baton
