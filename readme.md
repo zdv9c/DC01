@@ -37,8 +37,8 @@ Or use the provided script:
 ## Current Features
 
 - **Top-down inertial movement** with friction and speed clamping
-- **Bump & slide collision** - walk into walls and slide along them
-- **Player-following camera** using STALKER-X with smooth lerp
+- **Bump & slide collision** walk into walls and slide along them
+- **Player-following camera** using gamera
 - **Infinite checkerboard world** rendered relative to camera
 
 ## Technology Stack

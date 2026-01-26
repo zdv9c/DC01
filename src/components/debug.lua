@@ -16,6 +16,7 @@ Concord.component("Debug", function(c, config)
   c.track_position = config.track_position or false
   c.track_velocity = config.track_velocity or false
   c.track_collision = config.track_collision or false
+  c.track_cbs = config.track_cbs or false  -- CBS weight visualization
   c.entity_name = config.entity_name or "Entity"
   c.throttle_interval = config.throttle_interval or 0.25  -- Default 0.25s between updates
   

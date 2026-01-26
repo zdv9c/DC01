@@ -103,6 +103,16 @@ trigger: always_on
 - Orchestrator processes path into waypoints
 - Paths stored in Path component as array of positions, not as jumper object
 
+**CBS (Context-Based Steering)**:
+- Only movement/AI systems use CBS functions
+- CBS context created fresh per-frame via `CBS.new_context(resolution)`
+- Context is NOT stored in components (it's transient frame data)
+- Raycast results computed in shell, passed to `add_danger_from_rays()`
+- Wander cursor IS stored in component: `SteeringState {cursor = 0.0, seed = 0}`
+- CBS returns direction, shell converts to velocity
+- Pure library, no world access, no callbacks
+- Each entity needing unique wander uses different `params.seed`
+
 ### Anti-Patterns
 - ❌ Component storing library handle (e.g., `Shape {hc_shape}`)
 - ❌ Library callback modifying world state directly
@@ -112,6 +122,9 @@ trigger: always_on
 - ❌ Storing library objects in components (store pure data only)
 - ❌ UI directly reading/writing components (must go through events)
 - ❌ Noise/procedural functions called every frame (compute once, cache if needed)
+- ❌ Storing CBS context in components (context is per-frame, recreate with new_context)
+- ❌ Performing raycasts inside CBS calls (raycasts happen in shell, results passed in)
+- ❌ Directly using CBS result as velocity (CBS returns direction, multiply by speed in shell)
 
 ## Library State Storage Pattern
 

@@ -31,18 +31,22 @@ function Play:enter()
   
   -- Add systems in order
   local InputSystem = require "systems.system_input"
+  local AIMovementSystem = require "systems.system_ai_movement"
   local MovementSystem = require "systems.system_movement"
   local CollisionSystem = require "systems.system_collision"
   local CameraSystem = require "systems.system_camera"
   local DebugSystem = require "systems.system_debug"
+  local DebugCBSSystem = require "systems.system_debug_cbs"
   local RenderingSystem = require "systems.system_rendering"
   
   self.world:addSystem(InputSystem)
+  self.world:addSystem(AIMovementSystem)  -- CBS steering for AI entities
   self.world:addSystem(MovementSystem)
   self.world:addSystem(CollisionSystem)
   self.world:addSystem(CameraSystem)
-  self.world:addSystem(DebugSystem)  -- After all logic, before rendering
   self.world:addSystem(RenderingSystem)
+  self.world:addSystem(DebugSystem)  -- After all logic, before rendering
+  self.world:addSystem(DebugCBSSystem)  -- CBS weight visualization
   
   -- Create entities
   self:createWorld()
@@ -91,13 +95,22 @@ function Play:createWorld()
   createBlock(300, 132)
   createBlock(300, 148)
   
-  -- Create AI Actor (placeholder - no AI behavior yet)
+  -- Create AI Actor with CBS wandering
+  local enemy_spawn_x, enemy_spawn_y = 300, 300
   local enemy = Concord.entity(self.world)
-  enemy:give("Transform", 300, 300)
+  enemy:give("Transform", enemy_spawn_x, enemy_spawn_y)
   enemy:give("Velocity", 0, 0)
   enemy:give("Sprite", {1, 0, 0, 1}, 8)  -- Red
   enemy:give("Collider", 16, 16, "dynamic")
   enemy:give("AIControlled")
+  enemy:give("SteeringState", enemy_spawn_x, enemy_spawn_y, 240, 42)  -- Spawn, 15-tile leash, seed=42
+  enemy:give("Debug", {
+    entity_name = "Enemy",
+    track_position = false,
+    track_velocity = false,
+    track_collision = false,
+    track_cbs = true  -- Enable CBS debug visualization
+  })
 end
 
 function Play:update(dt)

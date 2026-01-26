@@ -19,6 +19,13 @@ local collision = Concord.system({
   pool = {"Transform", "Collider"}
 })
 
+-- Debug throttle
+local DEBUG_INTERVAL = 0.25  -- 4 times per second
+local debug_timer = 0
+
+-- Track last collision state per entity to avoid spamming
+local last_collision_state = {}
+
 --[[----------------------------------------------------------------------------
   SHELL LAYER - World Access Only
 ----------------------------------------------------------------------------]]--
@@ -26,20 +33,7 @@ local collision = Concord.system({
 function collision:init()
   self.hc = HC.new()
   self.shapes = {}  -- entity -> shape mapping
-  self.logfile = io.open("collision_log.txt", "w")
-  if self.logfile then
-    self.logfile:write("Collision system initialized\n")
-    self.logfile:flush()
-  end
-end
-
--- Log helper
-function collision:log(msg)
-  if self.logfile then
-    self.logfile:write(msg .. "\n")
-    self.logfile:flush()
-  end
-  print(msg)
+  print("[COLLISION] System initialized")
 end
 
 -- Creates a shape for an entity if one doesn't exist
@@ -62,13 +56,20 @@ function collision:ensureShape(entity)
   shape.entity = entity
   self.shapes[entity] = shape
   
-  self:log(string.format("[COLLISION] Created shape for entity at (%.1f, %.1f) size %dx%d type=%s", 
+  print(string.format("[COLLISION] Created shape for entity at (%.1f, %.1f) size %dx%d type=%s", 
     pos.x, pos.y, col.width, col.height, col.type))
   
   return shape
 end
 
 function collision:update(dt)
+  -- Throttled debug output
+  debug_timer = debug_timer + dt
+  local should_debug = debug_timer >= DEBUG_INTERVAL
+  if should_debug then
+    debug_timer = 0
+  end
+  
   -- Phase 1: Ensure shapes exist and sync with transforms
   for _, entity in ipairs(self.pool) do
     local col = entity.Collider
@@ -93,11 +94,25 @@ function collision:update(dt)
       
       local collisions = self.hc:collisions(shape)
       
-      -- Debug: count collisions
+      -- Count collisions
       local count = 0
       for _ in pairs(collisions) do count = count + 1 end
-      if count > 0 then
-        self:log(string.format("[COLLISION] Entity at (%.1f, %.1f) has %d collision(s)", pos.x, pos.y, count))
+      
+      -- Throttled debug: only log on state change
+      if should_debug then
+        local entity_id = tostring(entity)
+        local last_count = last_collision_state[entity_id] or 0
+        
+        if count ~= last_count then
+          if count > 0 then
+            print(string.format("[COLLISION] Entity at (%.0f, %.0f) now has %d collision(s)", 
+              pos.x, pos.y, count))
+          else
+            print(string.format("[COLLISION] Entity at (%.0f, %.0f) no longer colliding", 
+              pos.x, pos.y))
+          end
+          last_collision_state[entity_id] = count
+        end
       end
       
       for other_shape, separating_vector in pairs(collisions) do
