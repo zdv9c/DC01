@@ -6,6 +6,7 @@ local context_module = require("libs.cbs.context")
 local behaviors = require("libs.cbs.behaviors")
 local danger_module = require("libs.cbs.danger")
 local solver_module = require("libs.cbs.solver")
+local noise_module = require("libs.cbs.noise")
 local vec2 = require("libs.cbs.vec2")
 
 local CBS = {}
@@ -36,8 +37,10 @@ end
 -- @param ctx: context
 -- @param target_direction: vec2 {x, y} - direction to seek
 -- @param weight: number (optional) - strength multiplier (default 1.0)
-function CBS.add_seek(ctx, target_direction, weight)
-  behaviors.add_seek(ctx, target_direction, weight)
+-- @param clear_los: boolean (optional) - if true, zeros rear 210° arc
+-- @param force_direct: boolean (optional) - if true, only target slot gets interest
+function CBS.add_seek(ctx, target_direction, weight, clear_los, force_direct)
+  behaviors.add_seek(ctx, target_direction, weight, clear_los, force_direct)
 end
 
 -- Adds flee behavior - move away from target
@@ -78,10 +81,34 @@ function CBS.add_tether(ctx, current_position, spawn_position, leash_radius, ret
 end
 
 -- ============================================================================
+-- NOISE & VARIATION
+-- ============================================================================
+
+-- Adds spatial noise to the interest map
+-- @param ctx: context
+-- @param config: table {amount, scale, rate, seed, time}
+function CBS.add_spatial_noise(ctx, config)
+  noise_module.add_spatial_noise(ctx, config)
+end
+
+-- ============================================================================
 -- DANGER (Obstacle Avoidance)
 -- ============================================================================
 
--- Adds danger from raycast results
+-- Casts a ray for each CBS slot and applies danger based on hit distance
+-- Returns ray results for reuse (steering correction, visualization)
+-- @param ctx: context
+-- @param origin: {x, y} - ray origin position
+-- @param obstacles: array of {x, y, radius}
+-- @param config: {range, falloff} (optional)
+--   range: max ray distance (default 64)
+--   falloff: "linear" or "quadratic" (default "linear")
+-- @return array of {slot_index, angle, distance, hit, danger} for each slot
+function CBS.cast_slot_rays(ctx, origin, obstacles, config)
+  return danger_module.cast_slot_rays(ctx, origin, obstacles, config)
+end
+
+-- Legacy: Adds danger from pre-computed raycast results
 -- @param ctx: context
 -- @param ray_results: array of {direction = vec2, hit_distance = number}
 -- @param look_ahead: number - maximum raycast distance

@@ -14,4 +14,13 @@ Concord.component("SteeringState", function(c, spawn_x, spawn_y, leash_radius, s
   c.leash_radius = leash_radius or 240  -- Max distance from spawn (15 tiles × 16px)
   c.forward_x = 1.0                 -- Current facing direction X
   c.forward_y = 0.0                 -- Current facing direction Y
+  
+  -- Manual target override (Sandbox control)
+  c.has_target = false
+  c.target_x = 0
+  c.target_y = 0
+  
+  -- Raycast state
+  c.raycast_timer = 0.0               -- Timer for throttled raycast updates
+  c.last_ray_results = nil            -- Cached slot ray results for visualization
 end)

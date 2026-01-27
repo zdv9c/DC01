@@ -33,6 +33,12 @@ local last_collision_state = {}
 function collision:init()
   self.hc = HC.new()
   self.shapes = {}  -- entity -> shape mapping
+  
+  -- Wire up removal callback since Concord doesn't do it automatically
+  self.pool.onRemoved = function(pool, entity)
+    self:entityRemoved(entity)
+  end
+  
   print("[COLLISION] System initialized")
 end
 
@@ -45,19 +51,15 @@ function collision:ensureShape(entity)
   local pos = entity.Transform
   local col = entity.Collider
   
-  -- Create rectangle shape centered on entity position
-  local shape = self.hc:rectangle(
-    pos.x - col.width / 2,
-    pos.y - col.height / 2,
-    col.width,
-    col.height
-  )
+  -- Create circle shape centered on entity position
+  local radius = col.width / 2
+  local shape = self.hc:circle(pos.x, pos.y, radius)
   
   shape.entity = entity
   self.shapes[entity] = shape
   
-  print(string.format("[COLLISION] Created shape for entity at (%.1f, %.1f) size %dx%d type=%s", 
-    pos.x, pos.y, col.width, col.height, col.type))
+  print(string.format("[COLLISION] Created shape for entity at (%.1f, %.1f) radius %.1f type=%s", 
+    pos.x, pos.y, radius, col.type))
   
   return shape
 end
@@ -162,6 +164,14 @@ function collision:draw()
   -- for _, shape in pairs(self.shapes) do
   --   shape:draw("line")
   -- end
+end
+
+function collision:entityRemoved(entity)
+  if self.shapes[entity] then
+    self.hc:remove(self.shapes[entity])
+    self.shapes[entity] = nil
+    print("[COLLISION] Removed shape for entity")
+  end
 end
 
 --[[----------------------------------------------------------------------------

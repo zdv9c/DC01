@@ -17,11 +17,21 @@ local Play = {}
 function Play:enter()
   -- Load components
   require "components.init"
+
+  self.scale = 2
+  local screenWidth, screenHeight = love.graphics.getDimensions()
+  self.logicalWidth = math.floor(screenWidth / self.scale)
+  self.logicalHeight = math.floor(screenHeight / self.scale)
+  
+  self.canvas = love.graphics.newCanvas(self.logicalWidth, self.logicalHeight)
+  self.canvas:setFilter("nearest", "nearest")
   
   -- Create camera with world bounds centered around origin
   -- gamera.new(left, top, width, height)
   -- Using centered bounds so camera can freely move around (0,0)
   self.camera = gamera.new(-1000, -1000, 2000, 2000)
+  -- Set camera window to our logical resolution
+  self.camera:setWindow(0, 0, self.logicalWidth, self.logicalHeight)
   
   -- Create ECS world
   self.world = Concord.world()
@@ -40,7 +50,8 @@ function Play:enter()
   local RenderingSystem = require "systems.system_rendering"
   
   self.world:addSystem(InputSystem)
-  self.world:addSystem(AIMovementSystem)  -- CBS steering for AI entities
+  self.world:addSystem(require "systems.system_sandbox") -- Sandbox interaction
+  self.world:addSystem(AIMovementSystem)
   self.world:addSystem(MovementSystem)
   self.world:addSystem(CollisionSystem)
   self.world:addSystem(CameraSystem)
@@ -55,7 +66,7 @@ end
 function Play:createWorld()
   -- Create Player
   local player = Concord.entity(self.world)
-  player:give("Transform", 100, 100)
+  player:give("Transform", 300, 184)
   player:give("Velocity", 0, 0)
   player:give("Sprite", {0, 1, 0, 1}, 8)  -- Green circle
   player:give("Collider", 16, 16, "dynamic")
@@ -74,33 +85,25 @@ function Play:createWorld()
     block:give("Transform", x, y)
     block:give("Sprite", {0.5, 0.5, 0.5, 1}, 8)  -- Grey
     block:give("Collider", 16, 16, "static")
+    block:give("Debug", {
+      entity_name = "Block",
+      track_collision = false
+    })
     return block
   end
   
   -- Wall of blocks
-  local debugBlock = createBlock(200, 200)
-  debugBlock:give("Debug", {
-    entity_name = "Block",
-    track_collision = true
-  })
-  createBlock(216, 200)
-  createBlock(232, 200)
-  createBlock(248, 200)
-  createBlock(248, 216)
-  createBlock(248, 232)
+  -- (Removed: Managed by persistent sandbox system now)
   
   -- Another wall for testing slide
-  createBlock(300, 100)
-  createBlock(300, 116)
-  createBlock(300, 132)
-  createBlock(300, 148)
+  -- (Removed: Managed by persistent sandbox system now)
   
   -- Create AI Actor with CBS wandering
   local enemy_spawn_x, enemy_spawn_y = 300, 300
   local enemy = Concord.entity(self.world)
   enemy:give("Transform", enemy_spawn_x, enemy_spawn_y)
   enemy:give("Velocity", 0, 0)
-  enemy:give("Sprite", {1, 0, 0, 1}, 8)  -- Red
+  enemy:give("Sprite", {1, 1, 0, 1}, 8)  -- Yellow
   enemy:give("Collider", 16, 16, "dynamic")
   enemy:give("AIControlled")
   enemy:give("SteeringState", enemy_spawn_x, enemy_spawn_y, 240, 42)  -- Spawn, 15-tile leash, seed=42
@@ -118,17 +121,36 @@ function Play:update(dt)
 end
 
 function Play:draw()
-  self.world:emit("draw")
+  -- Draw game world and UI to canvas
+  love.graphics.setCanvas(self.canvas)
+    love.graphics.clear()
+    self.world:emit("draw")
+    
+    -- UI overlay (now in logical coordinates)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print("WASD/Arrows to move", 10, 10)
+  love.graphics.setCanvas()
   
-  -- UI overlay (not affected by camera)
+  -- Draw scaled canvas to screen
   love.graphics.setColor(1, 1, 1)
-  love.graphics.print("WASD/Arrows to move", 10, 10)
+  love.graphics.draw(self.canvas, 0, 0, 0, self.scale, self.scale)
 end
 
 function Play:keypressed(key)
   if key == "escape" then
     love.event.quit()
   end
+end
+
+function Play:mousepressed(x, y, button)
+  -- Convert screen coordinates to logical coordinates
+  local lx, ly = x / self.scale, y / self.scale
+  self.world:emit("mousepressed", lx, ly, button)
+end
+
+function Play:mousereleased(x, y, button)
+  local lx, ly = x / self.scale, y / self.scale
+  self.world:emit("mousereleased", lx, ly, button)
 end
 
 return Play

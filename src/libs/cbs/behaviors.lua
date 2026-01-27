@@ -13,14 +13,42 @@ local noise_generators = {}
 -- @param ctx: context
 -- @param target_direction: vec2 - direction to seek
 -- @param weight: number - strength multiplier (default 1.0)
-function behaviors.add_seek(ctx, target_direction, weight)
+-- @param clear_los: boolean - if true, zeros rear 210° arc (optional)
+-- @param force_direct: boolean - if true, only target slot gets interest (thread needle)
+function behaviors.add_seek(ctx, target_direction, weight, clear_los, force_direct)
   weight = weight or 1.0
+  clear_los = clear_los or false
+  force_direct = force_direct or false
   local target_norm = vec2.normalize(target_direction)
+
+  -- Force direct mode: find best slot and give it all the interest
+  if force_direct then
+    local best_slot = 1
+    local best_dot = -2
+    for i = 1, ctx.resolution do
+      local dot_product = vec2.dot(ctx.slots[i], target_norm)
+      if dot_product > best_dot then
+        best_dot = dot_product
+        best_slot = i
+      end
+    end
+    -- Only the best slot gets interest, all others stay at 0
+    ctx.interest[best_slot] = ctx.interest[best_slot] + weight
+    return
+  end
 
   for i = 1, ctx.resolution do
     local dot_product = vec2.dot(ctx.slots[i], target_norm)
-    -- Only positive dot products (forward directions)
-    local interest_value = math.max(0.0, dot_product) * weight
+    
+    -- Smooth falloff curve: 1.0 at 0 deg, 0.5 at 90 deg, 0.0 at 180 deg
+    local interest_value = (1.0 + dot_product) * 0.5 * weight
+    
+    -- When clear LOS: zero out rear 210° arc (keep only front ~150° cone)
+    -- dot < cos(75°) ≈ 0.259 means angle > 75° from target
+    if clear_los and dot_product < 0.259 then
+      interest_value = 0
+    end
+    
     ctx.interest[i] = ctx.interest[i] + interest_value
   end
 end
@@ -104,8 +132,8 @@ function behaviors.add_wander(ctx, forward_direction, noise_cursor, params)
   -- Apply seek toward wander direction
   behaviors.add_seek(ctx, wander_direction, weight)
 
-  -- Return updated cursor (caller decides how to advance it)
-  return noise_cursor
+  -- Return updated cursor and the chosen direction vector
+  return noise_cursor, wander_direction
 end
 
 -- Adds interest with tethering - returns to spawn when too far

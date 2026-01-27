@@ -3,10 +3,117 @@
 
 local vec2 = require("libs.cbs.vec2")
 local context_module = require("libs.cbs.context")
+local raycast = require("libs.cbs.raycast")
 
 local danger = {}
 
--- Adds danger from raycast results
+-- Casts a ray for each CBS slot and applies danger based on hit distance
+-- Also returns ray results for reuse (steering correction, visualization)
+-- @param ctx: context
+-- @param origin: {x, y} - ray origin position
+-- @param obstacles: array of {x, y, radius}
+-- @param config: {range, falloff, forward_direction} - optional config
+--   - range: max raycast distance
+--   - falloff: "linear" or "quadratic"
+--   - forward_direction: {x, y} - enables rear-biased danger spread
+-- @return array of {slot_index, angle, distance, hit} for each slot
+function danger.cast_slot_rays(ctx, origin, obstacles, config)
+  config = config or {}
+  local max_range = config.range or 64
+  local falloff = config.falloff or "linear"
+  
+  local ray_results = {}
+  
+  for i = 1, ctx.resolution do
+    local slot_dir = ctx.slots[i]
+    local angle = math.atan2(slot_dir.y, slot_dir.x)
+    
+    -- Cast ray in this slot's direction
+    local hit = raycast.cast(origin, angle, max_range, obstacles)
+    
+    -- Calculate danger from hit distance
+    local danger_value = 0
+    local hit_distance = max_range
+    
+    if hit then
+      hit_distance = hit.distance
+      
+      -- Convert distance to danger (closer = more dangerous)
+      local normalized = hit_distance / max_range
+      if falloff == "quadratic" then
+        danger_value = 1.0 - (normalized * normalized)
+      else -- linear
+        danger_value = 1.0 - normalized
+      end
+      
+      -- Apply danger to this slot and spread to neighbors
+      -- If forward direction provided, spread BACKWARD (rear-biased)
+      -- Otherwise spread symmetrically
+      local SPREAD_ANGLE = math.pi / 2  -- 90 degrees total spread
+      
+      -- Apply primary danger
+      ctx.danger[i] = math.max(ctx.danger[i], danger_value)
+      
+      -- Spread to other slots
+      if danger_value > 0.1 then
+        -- Get forward direction if available
+        local forward_angle = nil
+        if config.forward_direction then
+          forward_angle = math.atan2(config.forward_direction.y, config.forward_direction.x)
+        end
+        
+        for j = 1, ctx.resolution do
+          if i ~= j then
+            local other_dir = ctx.slots[j]
+            local other_angle = math.atan2(other_dir.y, other_dir.x)
+            local diff_angle = math.abs(other_angle - angle)
+            
+            -- Handle wrap around
+            if diff_angle > math.pi then 
+              diff_angle = 2 * math.pi - diff_angle 
+            end
+            
+            if diff_angle < SPREAD_ANGLE then
+              -- If we have a forward direction, only spread to rear arc
+              local should_spread = true
+              
+              if forward_angle then
+                -- Calculate if this slot is in the rear arc relative to forward direction
+                -- Rear arc = slots more than 90° away from forward direction
+                local forward_diff = other_angle - forward_angle
+                if forward_diff > math.pi then forward_diff = forward_diff - 2 * math.pi end
+                if forward_diff < -math.pi then forward_diff = forward_diff + 2 * math.pi end
+                
+                -- Only spread to slots in rear hemisphere (±90° to ±180° from forward)
+                should_spread = math.abs(forward_diff) > math.pi / 2
+              end
+              
+              if should_spread then
+                -- Linear falloff based on angle difference
+                local falloff_factor = 1.0 - (diff_angle / SPREAD_ANGLE)
+                local spread_danger = danger_value * falloff_factor
+                ctx.danger[j] = math.max(ctx.danger[j], spread_danger)
+              end
+            end
+          end
+        end
+      end
+    end
+    
+    -- Store ray result for reuse
+    ray_results[i] = {
+      slot_index = i,
+      angle = angle,
+      distance = hit_distance,
+      hit = hit ~= nil,
+      danger = danger_value
+    }
+  end
+  
+  return ray_results
+end
+
+-- Legacy: Adds danger from pre-computed raycast results
 -- @param ctx: context
 -- @param ray_results: array of {direction = vec2, hit_distance = number}
 -- @param look_ahead: number - maximum raycast distance
@@ -50,7 +157,7 @@ function danger.apply_dilation(ctx, sigma)
 
   for i = 1, ctx.resolution do
     if original_danger[i] > 0.01 then  -- Only dilate significant danger
-      -- Spread to neighbors
+      -- Spread to neighb,ors
       for offset = -spread_radius, spread_radius do
         if offset ~= 0 then
           local neighbor_index = context_module.wrap_index(ctx, i + offset)
@@ -86,11 +193,25 @@ function danger.add_danger_from_proximity(ctx, agent_position, obstacles, danger
       local slot_index = context_module.find_closest_slot(ctx, to_obstacle)
 
       -- Danger inversely proportional to distance
-      local danger_value = 1.0 - (distance / danger_radius)
+      -- Scale: 1.0 at 16px (collision), 0.0 at danger_radius
+      -- Assume 16px is effectively "touching" (radius + radius)
+      local collision_dist = 8
+      local effective_range = math.max(0.001, danger_radius - collision_dist)
+      local dist_factor = math.max(0.0, distance - collision_dist) / effective_range
+      -- Convex falloff: Danger stays high longer, then drops
+      -- Formula: 1.0 - (factor^2)
+      danger_value = 1.0 - (dist_factor * dist_factor)
+      
+      -- Ensure strictly non-negative
+      danger_value = math.max(0.0, danger_value)
 
       ctx.danger[slot_index] = math.max(ctx.danger[slot_index], danger_value)
     end
   end
+  
+  -- Apply dilation to spread danger (simulates agent width)
+  -- Sigma 1.2 spreads danger but keeps 45-degree paths cleaner
+  danger.apply_dilation(ctx, 1.2)
 end
 
 -- Adds directional danger - marks specific directions as dangerous

@@ -1,0 +1,59 @@
+[COLLISION] System initialized
+[COLLISION] Created shape for entity at (100.0, 100.0) size 16x16 type=dynamic
+[COLLISION] Created shape for entity at (200.0, 200.0) size 16x16 type=static
+[COLLISION] Created shape for entity at (216.0, 200.0) size 16x16 type=static
+[COLLISION] Created shape for entity at (232.0, 200.0) size 16x16 type=static
+[COLLISION] Created shape for entity at (248.0, 200.0) size 16x16 type=static
+[COLLISION] Created shape for entity at (248.0, 216.0) size 16x16 type=static
+[COLLISION] Created shape for entity at (248.0, 232.0) size 16x16 type=static
+[COLLISION] Created shape for entity at (300.0, 100.0) size 16x16 type=static
+[COLLISION] Created shape for entity at (300.0, 116.0) size 16x16 type=static
+[COLLISION] Created shape for entity at (300.0, 132.0) size 16x16 type=static
+[COLLISION] Created shape for entity at (300.0, 148.0) size 16x16 type=static
+[COLLISION] Created shape for entity at (300.0, 300.0) size 16x16 type=dynamic
+Debug Frame: self.obstacles count = 12
+Obstacles found in list: 12
+Obstacles stored for processing: 11
+[AI] pos=(300,300) dist=0 tether=0.00 wander_w=0.00 mag=0.00 vel=(0.0,0.0)
+[DEBUG:Player#table: 0x7f098c21d428] Position: (100.00, 100.00)
+[DEBUG:Player#table: 0x7f098c21d428] Velocity: (0.00, 0.00) Speed: 0.00
+[DEBUG:Player#table: 0x7f098c21d428] Collision: none at (100.00, 100.00)
+[DEBUG:Block#table: 0x7f0984021eb0] Collision: none at (200.00, 200.00)
+Debug Frame: self.obstacles count = 12
+Obstacles found in list: 12
+Obstacles stored for processing: 11
+[AI] pos=(300,300) dist=0 tether=0.00 wander_w=0.00 mag=0.00 vel=(0.0,0.0)
+Debug Frame: self.obstacles count = 12
+Obstacles found in list: 12
+Obstacles stored for processing: 11
+[AI] pos=(300,300) dist=0 tether=0.00 wander_w=0.00 mag=0.00 vel=(0.0,0.0)
+Debug Frame: self.obstacles count = 12
+Obstacles found in list: 12
+Obstacles stored for processing: 11
+[AI] pos=(300,300) dist=0 tether=0.00 wander_w=0.00 mag=0.00 vel=(0.0,0.0)
+Debug Frame: self.obstacles count = 12
+Obstacles found in list: 12
+Obstacles stored for processing: 11
+[AI] pos=(300,299) dist=1 tether=0.00 wander_w=0.00 mag=1.01 vel=(-9.2,-59.3)
+Debug Frame: self.obstacles count = 12
+Obstacles found in list: 12
+Obstacles stored for processing: 11
+[AI] pos=(298,286) dist=14 tether=0.00 wander_w=0.00 mag=1.10 vel=(-11.0,-59.0)
+Debug Frame: self.obstacles count = 12
+Obstacles found in list: 12
+Obstacles stored for processing: 11
+[AI] pos=(295,273) dist=27 tether=0.00 wander_w=0.00 mag=1.17 vel=(-15.7,-57.9)
+Debug Frame: self.obstacles count = 12
+Obstacles found in list: 12
+Obstacles stored for processing: 11
+[AI] pos=(291,260) dist=41 tether=0.04 wander_w=0.00 mag=1.20 vel=(-19.5,-56.7)
+Debug Frame: self.obstacles count = 12
+Obstacles found in list: 12
+Obstacles stored for processing: 11
+[AI] pos=(286,248) dist=54 tether=0.11 wander_w=0.00 mag=1.20 vel=(-21.7,-55.9)
+Debug Frame: self.obstacles count = 12
+Obstacles found in list: 12
+Obstacles stored for processing: 11
+[AI] pos=(281,235) dist=67 tether=0.17 wander_w=0.00 mag=1.19 vel=(-22.8,-55.5)
+[DEBUG:Player#table: 0x7f098c21d428] Position: (114.35, 100.00)
+[DEBUG:Player#table: 0x7f098c21d428] Velocity: (77.91, 0.00) Speed: 77.91

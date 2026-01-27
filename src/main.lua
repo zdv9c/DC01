@@ -29,3 +29,11 @@ end
 function love.keypressed(key)
     Gamestate.keypressed(key)
 end
+
+function love.mousepressed(x, y, button)
+    Gamestate.mousepressed(x, y, button)
+end
+
+function love.mousereleased(x, y, button)
+    Gamestate.mousereleased(x, y, button)
+end
