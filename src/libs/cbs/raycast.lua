@@ -14,7 +14,9 @@ local raycast = {}
 -- Casts a ray from origin in direction (angle radians) up to max_dist
 -- obstacles: array of {x, y, radius} tables
 -- Returns: {distance, obstacle} if hit, nil if clear
-function raycast.cast(origin, angle, max_dist, obstacles)
+-- filter_fn: optional function(obstacle) returns boolean. If false, obstacle is ignored.
+-- Returns: {distance, obstacle} if hit, nil if clear
+function raycast.cast(origin, angle, max_dist, obstacles, filter_fn)
   local dir_x = math.cos(angle)
   local dir_y = math.sin(angle)
   
@@ -22,19 +24,22 @@ function raycast.cast(origin, angle, max_dist, obstacles)
   local closest_dist = max_dist
   
   for _, obs in ipairs(obstacles) do
-    local dist = raycast.line_circle_intersection(
-      origin.x, origin.y,
-      dir_x, dir_y,
-      obs.x, obs.y, obs.radius,
-      max_dist
-    )
-    
-    if dist and dist < closest_dist then
-      closest_dist = dist
-      closest_hit = {
-        distance = dist,
-        obstacle = obs
-      }
+    -- Apply filter if provided
+    if not filter_fn or filter_fn(obs) then
+      local dist = raycast.line_circle_intersection(
+        origin.x, origin.y,
+        dir_x, dir_y,
+        obs.x, obs.y, obs.radius,
+        max_dist
+      )
+      
+      if dist and dist < closest_dist then
+        closest_dist = dist
+        closest_hit = {
+          distance = dist,
+          obstacle = obs
+        }
+      end
     end
   end
   

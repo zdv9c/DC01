@@ -42,6 +42,7 @@ function Play:enter()
   -- Add systems in order
   local InputSystem = require "systems.system_input"
   local AIMovementSystem = require "systems.system_ai_movement"
+  local PathfindingSystem = require "systems.system_pathfinding"
   local MovementSystem = require "systems.system_movement"
   local CollisionSystem = require "systems.system_collision"
   local CameraSystem = require "systems.system_camera"
@@ -51,6 +52,7 @@ function Play:enter()
   
   self.world:addSystem(InputSystem)
   self.world:addSystem(require "systems.system_sandbox") -- Sandbox interaction
+  self.world:addSystem(PathfindingSystem)
   self.world:addSystem(AIMovementSystem)
   self.world:addSystem(MovementSystem)
   self.world:addSystem(CollisionSystem)
@@ -66,7 +68,7 @@ end
 function Play:createWorld()
   -- Create Player
   local player = Concord.entity(self.world)
-  player:give("Transform", 300, 184)
+  player:give("Transform", 312, 280)
   player:give("Velocity", 0, 0)
   player:give("Sprite", {0, 1, 0, 1}, 8)  -- Green circle
   player:give("Collider", 16, 16, "dynamic")
@@ -99,7 +101,7 @@ function Play:createWorld()
   -- (Removed: Managed by persistent sandbox system now)
   
   -- Create AI Actor with CBS wandering
-  local enemy_spawn_x, enemy_spawn_y = 300, 300
+  local enemy_spawn_x, enemy_spawn_y = 296, 296
   local enemy = Concord.entity(self.world)
   enemy:give("Transform", enemy_spawn_x, enemy_spawn_y)
   enemy:give("Velocity", 0, 0)
@@ -107,6 +109,7 @@ function Play:createWorld()
   enemy:give("Collider", 16, 16, "dynamic")
   enemy:give("AIControlled")
   enemy:give("SteeringState", enemy_spawn_x, enemy_spawn_y, 240, 42)  -- Spawn, 15-tile leash, seed=42
+  enemy:give("Path", enemy_spawn_x, enemy_spawn_y)  -- Initialize path with spawn location
   enemy:give("Debug", {
     entity_name = "Enemy",
     track_position = false,

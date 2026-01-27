@@ -20,6 +20,7 @@ git clone git://github.com/Yonaba/Jumper.git
 ````
 
 ### Download (latest)
+* __Development version__: [zip](http://github.com/Yonaba/Jumper/zipball/master) | [tar.gz](http://github.com/Yonaba/Jumper/tarball/master) ( __please do not use this!__ )
 * __Latest stable release (1.8.1)__: [zip](http://github.com/Yonaba/Jumper/archive/jumper-1.8.1-1.zip) | [tar.gz](http://github.com/Yonaba/Jumper/archive/jumper-1.8.1-1.tar.gz) ( __Recommended!__ )
 * __All stable releases__: [tags](http://github.com/Yonaba/Jumper/tags)
 

@@ -8,19 +8,21 @@ local raycast = require("libs.cbs.raycast")
 local danger = {}
 
 -- Casts a ray for each CBS slot and applies danger based on hit distance
--- Also returns ray results for reuse (steering correction, visualization)
+-- Also returns ray results for reuse (visualization, debug)
 -- @param ctx: context
 -- @param origin: {x, y} - ray origin position
 -- @param obstacles: array of {x, y, radius}
--- @param config: {range, falloff, forward_direction} - optional config
---   - range: max raycast distance
---   - falloff: "linear" or "quadratic"
---   - forward_direction: {x, y} - enables rear-biased danger spread
--- @return array of {slot_index, angle, distance, hit} for each slot
+-- @param config: {range, falloff} - optional config
+--   - range: max raycast distance (default 64)
+--   - falloff: "linear" or "quadratic" (default "linear")
+-- @return array of {slot_index, angle, distance, hit, danger} for each slot
 function danger.cast_slot_rays(ctx, origin, obstacles, config)
   config = config or {}
   local max_range = config.range or 64
   local falloff = config.falloff or "linear"
+  
+  -- Danger spread angle (±22.5° = one slot on each side for 16-slot resolution)
+  local SPREAD_ANGLE = math.pi / 4  -- 45 degrees total (±22.5°)
   
   local ray_results = {}
   
@@ -29,7 +31,7 @@ function danger.cast_slot_rays(ctx, origin, obstacles, config)
     local angle = math.atan2(slot_dir.y, slot_dir.x)
     
     -- Cast ray in this slot's direction
-    local hit = raycast.cast(origin, angle, max_range, obstacles)
+    local hit = raycast.cast(origin, angle, max_range, obstacles, config.filter)
     
     -- Calculate danger from hit distance
     local danger_value = 0
@@ -46,22 +48,11 @@ function danger.cast_slot_rays(ctx, origin, obstacles, config)
         danger_value = 1.0 - normalized
       end
       
-      -- Apply danger to this slot and spread to neighbors
-      -- If forward direction provided, spread BACKWARD (rear-biased)
-      -- Otherwise spread symmetrically
-      local SPREAD_ANGLE = math.pi / 2  -- 90 degrees total spread
-      
-      -- Apply primary danger
+      -- Apply primary danger to this slot
       ctx.danger[i] = math.max(ctx.danger[i], danger_value)
       
-      -- Spread to other slots
+      -- Spread danger to neighboring slots (symmetric)
       if danger_value > 0.1 then
-        -- Get forward direction if available
-        local forward_angle = nil
-        if config.forward_direction then
-          forward_angle = math.atan2(config.forward_direction.y, config.forward_direction.x)
-        end
-        
         for j = 1, ctx.resolution do
           if i ~= j then
             local other_dir = ctx.slots[j]
@@ -74,26 +65,10 @@ function danger.cast_slot_rays(ctx, origin, obstacles, config)
             end
             
             if diff_angle < SPREAD_ANGLE then
-              -- If we have a forward direction, only spread to rear arc
-              local should_spread = true
-              
-              if forward_angle then
-                -- Calculate if this slot is in the rear arc relative to forward direction
-                -- Rear arc = slots more than 90° away from forward direction
-                local forward_diff = other_angle - forward_angle
-                if forward_diff > math.pi then forward_diff = forward_diff - 2 * math.pi end
-                if forward_diff < -math.pi then forward_diff = forward_diff + 2 * math.pi end
-                
-                -- Only spread to slots in rear hemisphere (±90° to ±180° from forward)
-                should_spread = math.abs(forward_diff) > math.pi / 2
-              end
-              
-              if should_spread then
-                -- Linear falloff based on angle difference
-                local falloff_factor = 1.0 - (diff_angle / SPREAD_ANGLE)
-                local spread_danger = danger_value * falloff_factor
-                ctx.danger[j] = math.max(ctx.danger[j], spread_danger)
-              end
+              -- Linear falloff based on angle difference
+              local falloff_factor = 1.0 - (diff_angle / SPREAD_ANGLE)
+              local spread_danger = danger_value * falloff_factor
+              ctx.danger[j] = math.max(ctx.danger[j], spread_danger)
             end
           end
         end

@@ -37,10 +37,8 @@ end
 -- @param ctx: context
 -- @param target_direction: vec2 {x, y} - direction to seek
 -- @param weight: number (optional) - strength multiplier (default 1.0)
--- @param clear_los: boolean (optional) - if true, zeros rear 210° arc
--- @param force_direct: boolean (optional) - if true, only target slot gets interest
-function CBS.add_seek(ctx, target_direction, weight, clear_los, force_direct)
-  behaviors.add_seek(ctx, target_direction, weight, clear_los, force_direct)
+function CBS.add_seek(ctx, target_direction, weight)
+  behaviors.add_seek(ctx, target_direction, weight)
 end
 
 -- Adds flee behavior - move away from target

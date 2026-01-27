@@ -15,7 +15,7 @@
 local Concord = require "libs.Concord"
 
 local sandbox = Concord.system({
-  pool_ai = {"AIControlled", "SteeringState"},
+  pool_ai = {"AIControlled", "SteeringState", "Path"},
   pool_obstacles = {"Collider", "Debug"} -- Assuming obstacles have Debug component with entity_name="Block"
 })
 
@@ -119,11 +119,22 @@ end
 
 function sandbox:updateTarget(wx, wy)
   for _, entity in ipairs(self.pool_ai) do
-    local steering = entity.SteeringState
-    if steering then
-      steering.has_target = true
-      steering.target_x = wx
-      steering.target_y = wy
+    local path = entity.Path
+    if path then
+      -- Update final target for Pathfinding system
+      path.final_target.x = wx
+      path.final_target.y = wy
+      
+      -- Force immediate path refresh
+      path.refresh_timer = 100 -- Force > interval
+      
+      -- Also update steering state for immediate feedback/fallback
+      local steering = entity.SteeringState
+      if steering then
+        steering.has_target = true
+        steering.target_x = wx
+        steering.target_y = wy
+      end
     end
   end
 end

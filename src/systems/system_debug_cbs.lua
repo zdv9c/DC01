@@ -16,7 +16,7 @@ local Concord = require "libs.Concord"
 local CBS = require "libs.cbs"
 
 local debug_cbs = Concord.system({
-  pool = {"AIControlled", "Transform", "SteeringState", "Debug"}
+  pool = {"AIControlled", "Transform", "SteeringState", "Debug", "Path"}
 })
 
 -- Config constants
@@ -57,6 +57,11 @@ function debug_cbs:draw()
           if steering then
              draw_leash_perimeter(steering)
           end
+          
+          -- Draw A* path
+          if entity.Path then
+             draw_path(entity.Path)
+          end
 
           draw_cbs_gizmo(pos.x, pos.y, ctx, steering)
         else
@@ -71,6 +76,51 @@ end
 --[[----------------------------------------------------------------------------
   ORCHESTRATION LAYER - Pure Coordination
 ----------------------------------------------------------------------------]]--
+
+-- Draws the A* path
+-- @param path: Path component
+function draw_path(path)
+  if not path.waypoints or #path.waypoints == 0 then return end
+  
+  love.graphics.setLineWidth(2)
+  
+  local last_x, last_y
+  
+  -- Draw waypoints and connections
+  for i, wp in ipairs(path.waypoints) do
+    if i >= path.current_index then
+      -- Connection
+      if last_x then
+        -- Blue line for future path
+        love.graphics.setColor(0.2, 0.6, 1.0, 0.8)
+        love.graphics.line(last_x, last_y, wp.x, wp.y)
+      end
+      
+      -- Node
+      if i == path.current_index then
+        -- Current target: Bright cyan
+        love.graphics.setColor(0, 1, 1, 1)
+        love.graphics.circle("fill", wp.x, wp.y, 4)
+      else
+        -- Future nodes: Blue
+        love.graphics.setColor(0.2, 0.6, 1.0, 0.6)
+        love.graphics.circle("fill", wp.x, wp.y, 3)
+      end
+      
+      last_x, last_y = wp.x, wp.y
+    end
+  end
+  
+  -- Draw connection to final target from last waypoint
+  if last_x then
+     love.graphics.setColor(0.2, 0.6, 1.0, 0.4)
+     love.graphics.line(last_x, last_y, path.final_target.x, path.final_target.y)
+  end
+  
+  -- Reset
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(1, 1, 1, 1)
+end
 
 -- Draws a simple indicator when no CBS context is available
 -- @param cx: number - center x
