@@ -7,6 +7,7 @@
 local Concord = require "libs.Concord"
 local Gamestate = require "libs.hump.gamestate"
 local gamera = require "libs.gamera.gamera"
+local AI_CONFIG = require "config.ai_config"
 
 local Play = {}
 
@@ -104,7 +105,7 @@ function Play:createWorld()
   local enemy_spawn_x, enemy_spawn_y = 296, 296
   local enemy = Concord.entity(self.world)
   enemy:give("Transform", enemy_spawn_x, enemy_spawn_y)
-  enemy:give("Velocity", 0, 0)
+  enemy:give("Velocity", 0, 0, AI_CONFIG.movement.speed, 0) -- kinematic (no friction)
   enemy:give("Sprite", {1, 1, 0, 1}, 8)  -- Yellow
   enemy:give("Collider", 16, 16, "dynamic")
   enemy:give("AIControlled")

@@ -41,7 +41,9 @@ function ai_movement:update(dt)
   -- Throttled debug output
   self.debug_timer = self.debug_timer + dt
   local should_debug = self.debug_timer >= AI_CONFIG.debug.print_interval
-  if should_debug then self.debug_timer = 0 end
+  if should_debug then 
+    self.debug_timer = 0 
+  end
   
   -- Collect obstacles for raycasting
   local obstacle_data = {}
@@ -171,6 +173,18 @@ function compute_ai_steering(pos, vel, steering, path, obstacles, entity_radius,
     time = steering.noise_time
   })
   
+  -- Resolve potential deadlocks (dead-center obstacles)
+  -- Uses target direction intention to break symmetry
+  if desired_direction then
+    CBS.resolve_deadlocks(
+      ctx,
+      {x = steering.forward_x, y = steering.forward_y},
+      desired_direction,
+      CBS_CFG.deadlock_threshold,
+      CBS_CFG.deadlock_bias
+    )
+  end
+  
   -- 5. Solve for Direction
   local result = CBS.solve(ctx)
   
@@ -178,19 +192,45 @@ function compute_ai_steering(pos, vel, steering, path, obstacles, entity_radius,
   local target_vx, target_vy = 0, 0
   
   if has_movement and result.magnitude > 0.01 then
-    local dir = result.direction
-    target_vx = dir.x * MOVE_CFG.speed
-    target_vy = dir.y * MOVE_CFG.speed
+    -- 6. Rotational Heading Steering
+    local current_heading = {
+      x = steering.forward_x or 1,
+      y = steering.forward_y or 0
+    }
+    local desired_direction = result.direction
     
-    -- Update forward heading (for noise and visual orientation)
-    steering.forward_x = dir.x
-    steering.forward_y = dir.y
+    -- Smoothly rotate current heading toward desired direction
+    local new_heading = CBS.steering.smooth_turn(
+      current_heading, 
+      desired_direction, 
+      dt, 
+      MOVE_CFG.turn_smoothing
+    )
+    
+    -- Update forward heading (for logic and visual orientation)
+    steering.forward_x = new_heading.x
+    steering.forward_y = new_heading.y
   end
   
-  -- Smooth acceleration (Exponential Decay)
+  -- 7. Smooth Velocity (Polar/Magnitude-Invariant)
   local blend = 1.0 - math.exp(-MOVE_CFG.velocity_smoothing * dt)
-  local new_vx = vel.x + (target_vx - vel.x) * blend
-  local new_vy = vel.y + (target_vy - vel.y) * blend
+  
+  -- Target speed is biased by the CBS magnitude (naturally brakes in danger)
+  -- Uses min_speed_bias to prevent the NPC from slowing to a crawl
+  local target_speed = 0
+  if has_movement then
+    local bias = MOVE_CFG.min_speed_bias or 0
+    local effective_magnitude = bias + (1.0 - bias) * result.magnitude
+    target_speed = MOVE_CFG.speed * effective_magnitude
+  end
+  
+  -- Use internal current_speed state to avoid lag after physical collisions
+  steering.current_speed = steering.current_speed or 0
+  steering.current_speed = steering.current_speed + (target_speed - steering.current_speed) * blend
+  
+  -- Velocity is simply the current heading (already smoothed) * current speed intent
+  local new_vx = steering.forward_x * steering.current_speed
+  local new_vy = steering.forward_y * steering.current_speed
   
   -- Advance wander cursor
   local new_cursor = CBS.advance_cursor(steering.cursor, dt, 1.0)

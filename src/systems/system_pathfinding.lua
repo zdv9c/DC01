@@ -214,6 +214,68 @@ function pathfinding:check_static_integrity()
   return false
 end
 
+-- Prunes waypoints that the agent is already past
+-- @param waypoints: table - list of waypoints {x, y}
+-- @param pos: {x, y} - agent current position
+-- @param reached_threshold: number - distance to consider waypoint reached
+-- @return table - pruned waypoints
+-- Prunes waypoints that the agent is already past
+-- @param waypoints: table - list of waypoints {x, y}
+-- @param pos: {x, y} - agent current position
+-- @return table - pruned waypoints
+function prune_initial_waypoints(waypoints, pos)
+  local pruned = {}
+  for i, wp in ipairs(waypoints) do
+    table.insert(pruned, {x = wp.x, y = wp.y})
+  end
+  
+  -- Tight threshold (0.2 tiles) for pruning to avoid over-skipping
+  local prune_dist = 0.2 * TILE_SIZE
+  local prune_dist_sq = prune_dist * prune_dist
+  
+  -- While we have a "next" waypoint to compare to
+  while #pruned > 1 do
+    local p1 = pruned[1]
+    local p2 = pruned[2]
+    
+    -- Check 1: Are we already at p1?
+    local dx1, dy1 = p1.x - pos.x, p1.y - pos.y
+    local is_at_p1 = (dx1*dx1 + dy1*dy1 < prune_dist_sq)
+    
+    -- Check 2: Are we "beyond" p1 in the direction of p2?
+    local is_past_p1 = false
+    local v12x, v12y = p2.x - p1.x, p2.y - p1.y
+    local mag12_sq = v12x*v12x + v12y*v12y
+    
+    if mag12_sq > 0.001 then
+      local v1Ax, v1Ay = pos.x - p1.x, pos.y - p1.y
+      local dot = v12x * v1Ax + v12y * v1Ay
+      -- Only consider it "past" if the dot product is positive (ahead)
+      if dot > 0 then
+        is_past_p1 = true
+      end
+    end
+
+    -- Safety Check: Even if we are "past" p1, we must have LOS to p2 to skip p1
+    if is_at_p1 or is_past_p1 then
+      local gx1, gy1 = world_to_grid(pos.x, pos.y)
+      local gx2, gy2 = world_to_grid(p2.x, p2.y)
+      
+      if has_line_of_sight(gx1, gy1, gx2, gy2) then
+        table.remove(pruned, 1)
+      else
+        -- No LOS to next node; we MUST hit p1 first to go around the corner
+        break
+      end
+    else
+      break
+    end
+  end
+  
+  return pruned
+end
+
+
 function pathfinding:update(dt)
   -- Lazy init or dirty rebuild
   if self.grid_dirty and #self.obstacles > 0 then
@@ -315,7 +377,10 @@ function pathfinding:update(dt)
           end
           
           -- Apply smoothing
-          path.waypoints = smooth_path(nodes)
+          local smoothed = smooth_path(nodes)
+          
+          -- Prune waypoints we are already past to prevent "snap-back" jerks
+          path.waypoints = prune_initial_waypoints(smoothed, pos)
              
           if AI_CONFIG.debug.log_pathfinding then
              print(string.format("[Pathfinding] Found path with %d nodes (smoothed to %d)", 

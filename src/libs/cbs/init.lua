@@ -7,6 +7,7 @@ local behaviors = require("libs.cbs.behaviors")
 local danger_module = require("libs.cbs.danger")
 local solver_module = require("libs.cbs.solver")
 local noise_module = require("libs.cbs.noise")
+local steering_module = require("libs.cbs.steering")
 local vec2 = require("libs.cbs.vec2")
 
 local CBS = {}
@@ -133,6 +134,16 @@ function CBS.add_directional_danger(ctx, danger_direction, danger_value, spread)
   danger_module.add_directional_danger(ctx, danger_direction, danger_value, spread)
 end
 
+-- Resolves deadlocks by biasing towards the target direction when forward is blocked
+-- @param ctx: context
+-- @param forward_dir: vec2 - current agent heading
+-- @param target_dir: vec2 - desired path direction
+-- @param threshold: number (optional) - danger trigger threshold
+-- @param bias: number (optional) - interest bonus
+function CBS.resolve_deadlocks(ctx, forward_dir, target_dir, threshold, bias)
+  danger_module.resolve_deadlocks(ctx, forward_dir, target_dir, threshold, bias)
+end
+
 -- ============================================================================
 -- SOLVER
 -- ============================================================================
@@ -168,6 +179,7 @@ end
 
 -- Exports vec2 utilities for convenience
 CBS.vec2 = vec2
+CBS.steering = steering_module
 
 -- Debug: Get masked interest/danger map
 -- @param ctx: context

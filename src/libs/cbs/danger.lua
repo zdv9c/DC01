@@ -213,4 +213,48 @@ function danger.add_directional_danger(ctx, danger_direction, danger_value, spre
   end
 end
 
+-- Resolves symmetric deadlocks (dead-center obstacles) by biasing the clearer side
+-- @param ctx: context
+-- @param threshold: number - danger threshold to trigger deadlock check (default 0.5)
+-- @param bias: number - interest bonus to add to the clearer side (default 0.5)
+-- Resolves deadlocks by biasing towards the target direction when forward is blocked
+-- @param ctx: context
+-- @param forward_dir: vec2 - current agent heading
+-- @param target_dir: vec2 - desired path direction
+-- @param threshold: number - danger threshold (default 0.5)
+-- @param bias: number - interest bonus (default 0.5)
+function danger.resolve_deadlocks(ctx, forward_dir, target_dir, threshold, bias)
+  threshold = threshold or 0.5
+  bias = bias or 0.5
+  
+  -- 1. Find the slot closest to our current heading
+  local forward_slot = context_module.find_closest_slot(ctx, forward_dir)
+  
+  -- 2. Check if "Forward" is blocked
+  -- We check the forward slot and its immediate neighbors to be sure
+  local d_center = ctx.danger[forward_slot]
+  
+  if d_center < threshold then
+    return
+  end
+  
+  -- 3. Determine which side the Target is on relative to Forward
+  -- Cross product z = ax * by - ay * bx
+  -- In 2D (screen space where Y is down):
+  -- Positive Cross means "Left" / Counter-Clockwise (usually)
+  -- Negative Cross means "Right" / Clockwise
+  local cross = forward_dir.x * target_dir.y - forward_dir.y * target_dir.x
+  
+  -- 4. Inject bias into the side slots that lead toward the target
+  -- We boost the "shoulder" slots (approx 45 degrees) on the target's side
+  local offset_dir = (cross > 0) and 1 or -1
+  
+  -- Boost slots: Forward + 1 (22.5), Forward + 2 (45), Forward + 3 (67.5)
+  -- This encourages a smooth turn AROUND the obstacle towards the target
+  for i = 1, 3 do
+    local idx = context_module.wrap_index(ctx, forward_slot + (i * offset_dir))
+    ctx.interest[idx] = ctx.interest[idx] + bias
+  end
+end
+
 return danger

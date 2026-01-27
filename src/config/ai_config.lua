@@ -35,6 +35,10 @@ return {
     -- "linear": danger decreases linearly with distance
     -- "quadratic": danger stays low until very close, then spikes
     danger_falloff = "quadratic",
+    
+    -- Deadlock Resolution (Symmetry Breaking)
+    deadlock_threshold = 0.5,  -- Trigger if front (0 deg) danger > this
+    deadlock_bias = 0.5,       -- Interest bonus to add to clearer side
   },
   
   -- ============================================================================
@@ -66,11 +70,18 @@ return {
   
   movement = {
     -- Base movement speed (pixels per second)
-    speed = 100,
+    speed = 50,
     
     -- Velocity smoothing rate (higher = snappier, lower = more gradual)
     -- Controls how fast velocity blends toward target velocity
-    velocity_smoothing = 8.0,
+    velocity_smoothing = 4.0,
+    
+    -- Turn smoothing rate (higher = tighter turns, lower = wider arcs)
+    turn_smoothing = 20.0,
+    
+    -- Minimum speed percentage even when magnitude is low (0.0 to 1.0)
+    -- Prevents NPC from "crawling" too much in complex areas
+    min_speed_bias = 0.5,
     
     -- Distance (in tiles) to consider target "reached" and stop
     target_reached = 0.5,  -- 0.5 tiles = 8px

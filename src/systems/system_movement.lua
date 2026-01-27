@@ -61,7 +61,7 @@ function compute_movement_step(px, py, vx, vy, max_speed, friction, dt)
   vx, vy = friction_result.vx, friction_result.vy
   
   -- Clamp to max speed
-  local clamp_result = clamp_velocity(vx, vy, max_speed * 2)
+  local clamp_result = clamp_velocity(vx, vy, max_speed)
   vx, vy = clamp_result.vx, clamp_result.vy
   
   -- Apply velocity to position
