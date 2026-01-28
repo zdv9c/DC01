@@ -1,7 +1,3 @@
----
-trigger: always_on
----
-
 # Code Style Guide - Agent Rules
 
 ## Core Philosophy
@@ -70,12 +66,12 @@ return movement
 ## Naming Conventions
 
 ### System Files
-- **Pattern**: `system_domain.lua`
-- **Examples**: `system_movement.lua`, `system_combat.lua`
-- **Rule**: Prefix with `system_` for instant identification
+- **Pattern**: `<domain>.lua`
+- **Examples**: `movement.lua`, `combat.lua`
+- **Rule**: Pure domain names for systems.
 
 ### System Table
-- **Pattern**: Single-word domain name matching filename minus `system_` prefix
+- **Pattern**: Single-word domain name matching filename.
 - **Examples**: `movement`, `combat`, `rendering`
 
 ### Shell Functions
@@ -293,7 +289,7 @@ world:set(entity, Position, result)
 ## Quick Reference
 
 **Naming**:
-- System file: `system_domain.lua`
+- System file: `<domain>.lua`
 - Orchestrator: `compute_what_it_returns(...)`
 - Pure function: `verb_noun(...)`
 - Local var: short if < 10 lines, full if longer

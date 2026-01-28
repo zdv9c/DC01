@@ -14,6 +14,7 @@
 
 local Concord = require("libs.Concord")
 local CBS = require("libs.cbs")
+local raycast = require("libs.cbs.raycast") -- Required for manual path check
 local AI_CONFIG = require("config.ai_config")
 
 local ai_movement = Concord.system({
@@ -26,6 +27,27 @@ local CBS_CFG = AI_CONFIG.cbs
 local PATH_CFG = AI_CONFIG.pathfinding
 local MOVE_CFG = AI_CONFIG.movement
 local NOISE_CFG = AI_CONFIG.noise
+
+--[[----------------------------------------------------------------------------
+  HELPER FUNCTIONS
+----------------------------------------------------------------------------]]--
+
+-- Returns true if there is a clear path between two world points for the agent
+local function has_clear_los(start_pos, end_pos, obstacles, radius, self_entity)
+  local dx = end_pos.x - start_pos.x
+  local dy = end_pos.y - start_pos.y
+  local dist = math.sqrt(dx*dx + dy*dy)
+  if dist < 0.1 then return true end
+  
+  local angle = math.atan2(dy, dx)
+  local filter = function(obs) return obs.entity ~= self_entity end
+  
+  -- Use a slightly larger radius for safety when checking LOS
+  local safety_radius = radius + 2 
+  local hit = raycast.cast(start_pos, angle, dist, obstacles, filter)
+  
+  return hit == nil
+end
 
 --[[----------------------------------------------------------------------------
   SHELL LAYER - World Access Only
@@ -71,6 +93,25 @@ function ai_movement:update(dt)
        steering.has_target = true
     end
     
+    -- 0. Continuous Path Pruning (Greedy LOS)
+    -- If we can see waypoints further down the line, skip intermediate ones
+    -- This makes the agent "cut corners" naturally as they become visible.
+    if path.is_valid and #path.waypoints > 1 then
+      -- Start checking from the furthest possible waypoint for one-frame shortcuts
+      local furthest_visible = 1
+      for i = #path.waypoints, 2, -1 do
+        if has_clear_los(pos, path.waypoints[i], obstacle_data, entity_radius, entity) then
+          furthest_visible = i
+          break
+        end
+      end
+      
+      -- Remove all waypoints before the furthest visible one
+      for i = 1, furthest_visible - 1 do
+        table.remove(path.waypoints, 1)
+      end
+    end
+    
     -- Call orchestrator
     local result = compute_ai_steering(
       pos, vel, steering, path,
@@ -83,6 +124,7 @@ function ai_movement:update(dt)
     steering.cursor = result.cursor
     steering.forward_x = result.forward_x
     steering.forward_y = result.forward_y
+    steering.deadlock_side = result.deadlock_side
     steering.last_ray_results = result.ray_results  -- Export for debug viz
     
     -- Store context for debug visualization
@@ -137,13 +179,22 @@ function compute_ai_steering(pos, vel, steering, path, obstacles, entity_radius,
   
   -- 2. Apply Behaviors
   local has_movement = false
+  local vec_to_target = nil -- Normalized direction
+  local dist_to_target_sq = 0
+  local use_simple_solver = false -- Default to interpolated solver
   
   if immediate_target and dist_to_target > MOVE_CFG.target_reached * AI_CONFIG.TILE_SIZE then
+    -- Seek immediate target (waypoint or final)
     -- Seek immediate target (waypoint or final)
     local to_target = {
       x = immediate_target.x - pos.x, 
       y = immediate_target.y - pos.y
     }
+    local d = math.sqrt(to_target.x*to_target.x + to_target.y*to_target.y)
+    if d > 0 then
+       vec_to_target = {x = to_target.x / d, y = to_target.y / d}
+    end
+    
     CBS.add_seek(ctx, to_target, 1.0)
     has_movement = true
   else
@@ -160,8 +211,44 @@ function compute_ai_steering(pos, vel, steering, path, obstacles, entity_radius,
   local ray_results = CBS.cast_slot_rays(ctx, {x = pos.x, y = pos.y}, obstacles, {
     range = CBS_CFG.danger_range * AI_CONFIG.TILE_SIZE,
     falloff = CBS_CFG.danger_falloff,
+    radius = entity_radius,
     filter = ignore_self
   })
+  
+  -- 3b. Apply Path Locking (Clear Line of Sight Check)
+  -- If we have a target and we can see it clearly, LOCK onto it
+  -- 3b. Apply Path Locking (Clear Line of Sight Check)
+  -- If we have a target and we can see it clearly, LOCK onto it
+  -- Only engage if we are far enough away (prevent overshoot dancing)
+  local approach_radius = 48 -- 3 tiles
+  if has_movement and vec_to_target and dist_to_target > approach_radius then
+    local angle_to_target = math.atan2(vec_to_target.y, vec_to_target.x)
+    
+    -- Offset start by radius + small epsilon to avoid self-intersection artifacts
+    -- Radius is approx 8 pixels
+    local start_offset = 10 
+    local start_x = pos.x + math.cos(angle_to_target) * start_offset
+    local start_y = pos.y + math.sin(angle_to_target) * start_offset
+    
+    -- Adjust distance to account for offset
+    -- Also subtract a safety margin (4px) to avoid hitting the target itself or the wall behind it
+    local check_dist = math.max(0, dist_to_target - start_offset - 4)
+    
+    -- Cast a single ray directly at the target
+    local hit = raycast.cast(
+      {x = start_x, y = start_y},
+      angle_to_target,
+      check_dist,
+      obstacles,
+      ignore_self
+    )
+    
+    -- If no hit (clear path), inject strong boost (was 10.0, reduced to 3.0 to reduce target dancing)
+    if not hit then
+       CBS.add_path_locking(ctx, vec_to_target, 3.0)
+       use_simple_solver = true -- Winner Take All for clear paths
+    end
+  end
   
   -- 4. Apply Organic Noise
   steering.noise_time = (steering.noise_time or 0) + dt
@@ -175,18 +262,25 @@ function compute_ai_steering(pos, vel, steering, path, obstacles, entity_radius,
   
   -- Resolve potential deadlocks (dead-center obstacles)
   -- Uses target direction intention to break symmetry
-  if desired_direction then
-    CBS.resolve_deadlocks(
+  local new_deadlock_side = 0
+  if vec_to_target then
+    new_deadlock_side = CBS.resolve_deadlocks(
       ctx,
       {x = steering.forward_x, y = steering.forward_y},
-      desired_direction,
+      vec_to_target,
       CBS_CFG.deadlock_threshold,
-      CBS_CFG.deadlock_bias
+      CBS_CFG.deadlock_bias,
+      steering.deadlock_side
     )
   end
   
   -- 5. Solve for Direction
-  local result = CBS.solve(ctx)
+  local result = nil
+  if use_simple_solver then
+    result = CBS.solve_simple(ctx)
+  else
+    result = CBS.solve(ctx)
+  end
   
   -- 6. Compute Velocity
   local target_vx, target_vy = 0, 0
@@ -220,7 +314,9 @@ function compute_ai_steering(pos, vel, steering, path, obstacles, entity_radius,
   local target_speed = 0
   if has_movement then
     local bias = MOVE_CFG.min_speed_bias or 0
-    local effective_magnitude = bias + (1.0 - bias) * result.magnitude
+    -- CLAMP magnitude to 1.0 to prevent super-speed from high interest boosts
+    local clamped_magnitude = math.min(1.0, result.magnitude)
+    local effective_magnitude = bias + (1.0 - bias) * clamped_magnitude
     target_speed = MOVE_CFG.speed * effective_magnitude
   end
   
@@ -250,6 +346,7 @@ function compute_ai_steering(pos, vel, steering, path, obstacles, entity_radius,
     cursor = new_cursor,
     forward_x = steering.forward_x,
     forward_y = steering.forward_y,
+    deadlock_side = new_deadlock_side,
     debug_context = ctx,
     ray_results = ray_results
   }

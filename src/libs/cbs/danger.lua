@@ -12,17 +12,23 @@ local danger = {}
 -- @param ctx: context
 -- @param origin: {x, y} - ray origin position
 -- @param obstacles: array of {x, y, radius}
--- @param config: {range, falloff} - optional config
+-- @param config: {range, falloff, radius} - optional config
 --   - range: max raycast distance (default 64)
---   - falloff: "linear" or "quadratic" (default "linear")
+--   - falloff: "linear", "quadratic", or "logarithmic" (default "linear")
+--   - radius: agent radius (default 0)
 -- @return array of {slot_index, angle, distance, hit, danger} for each slot
 function danger.cast_slot_rays(ctx, origin, obstacles, config)
   config = config or {}
   local max_range = config.range or 64
   local falloff = config.falloff or "linear"
+  local agent_radius = config.radius or 0
+  
+  -- Effective range is from the agent's edge to max_range
+  local effective_range = math.max(1, max_range - agent_radius)
   
   -- Danger spread angle (±22.5° = one slot on each side for 16-slot resolution)
-  local SPREAD_ANGLE = math.pi / 4  -- 45 degrees total (±22.5°)
+  -- Variable spread: Closer objects spread danger wider
+  local BASE_SPREAD = math.pi / 4  -- 45 degrees 
   
   local ray_results = {}
   
@@ -40,10 +46,16 @@ function danger.cast_slot_rays(ctx, origin, obstacles, config)
     if hit then
       hit_distance = hit.distance
       
-      -- Convert distance to danger (closer = more dangerous)
-      local normalized = hit_distance / max_range
+      -- Convert distance to "Gap" (distance between boundaries)
+      -- 1.0 danger occurs when gap is 0 (physical contact)
+      local gap = math.max(0, hit_distance - agent_radius)
+      local normalized = math.min(1.0, gap / effective_range)
+      
       if falloff == "quadratic" then
         danger_value = 1.0 - (normalized * normalized)
+      elseif falloff == "logarithmic" then
+        -- Strong repulsion that stays high longer (Convex/Hard Shell)
+        danger_value = 1.0 - (normalized * normalized * normalized * normalized)
       else -- linear
         danger_value = 1.0 - normalized
       end
@@ -51,8 +63,13 @@ function danger.cast_slot_rays(ctx, origin, obstacles, config)
       -- Apply primary danger to this slot
       ctx.danger[i] = math.max(ctx.danger[i], danger_value)
       
-      -- Spread danger to neighboring slots (symmetric)
-      if danger_value > 0.1 then
+      -- Spread danger to neighboring slots
+      -- Closer objects spread WIDER to prevent clipping edges
+      if danger_value > 0.05 then
+        -- Spread up to 90 degrees total if nearly touching
+        local spread_factor = 0.5 + 0.5 * danger_value
+        local current_spread = BASE_SPREAD * spread_factor
+        
         for j = 1, ctx.resolution do
           if i ~= j then
             local other_dir = ctx.slots[j]
@@ -64,10 +81,10 @@ function danger.cast_slot_rays(ctx, origin, obstacles, config)
               diff_angle = 2 * math.pi - diff_angle 
             end
             
-            if diff_angle < SPREAD_ANGLE then
+            if diff_angle < current_spread then
               -- Linear falloff based on angle difference
-              local falloff_factor = 1.0 - (diff_angle / SPREAD_ANGLE)
-              local spread_danger = danger_value * falloff_factor
+              local angle_factor = 1.0 - (diff_angle / current_spread)
+              local spread_danger = danger_value * angle_factor
               ctx.danger[j] = math.max(ctx.danger[j], spread_danger)
             end
           end
@@ -223,38 +240,43 @@ end
 -- @param target_dir: vec2 - desired path direction
 -- @param threshold: number - danger threshold (default 0.5)
 -- @param bias: number - interest bonus (default 0.5)
-function danger.resolve_deadlocks(ctx, forward_dir, target_dir, threshold, bias)
+-- @param side: number - current persistent side decision (0, 1, -1)
+-- @return number - updated side decision
+function danger.resolve_deadlocks(ctx, forward_dir, target_dir, threshold, bias, side)
   threshold = threshold or 0.5
   bias = bias or 0.5
+  side = side or 0
   
-  -- 1. Find the slot closest to our current heading
-  local forward_slot = context_module.find_closest_slot(ctx, forward_dir)
+  -- 1. Find the slot closest to the TARGET (Where we want to go)
+  local target_slot = context_module.find_closest_slot(ctx, target_dir)
   
-  -- 2. Check if "Forward" is blocked
-  -- We check the forward slot and its immediate neighbors to be sure
-  local d_center = ctx.danger[forward_slot]
+  -- 2. Check if "The Way" is blocked
+  -- If the direct path to target has danger, we need to pick a side
+  local d_target = ctx.danger[target_slot]
   
-  if d_center < threshold then
-    return
+  if d_target < threshold then
+    return 0 -- Return 0 to indicate no deadlock (clears persistence)
   end
   
-  -- 3. Determine which side the Target is on relative to Forward
-  -- Cross product z = ax * by - ay * bx
-  -- In 2D (screen space where Y is down):
-  -- Positive Cross means "Left" / Counter-Clockwise (usually)
-  -- Negative Cross means "Right" / Clockwise
-  local cross = forward_dir.x * target_dir.y - forward_dir.y * target_dir.x
+  -- 3. Determine which side to flank
+  -- If we already have a committed side, stick to it.
+  -- Otherwise, use Cross Product of Forward vs Target to see which side we are ALREADY favoring.
+  -- LÖVE2D (Y-down): Positive Cross = Target is to the Right of Forward.
+  -- To stay on our current side (Left), we add a negative offset to the target slot.
+  if side == 0 then
+    local cross = forward_dir.x * target_dir.y - forward_dir.y * target_dir.x
+    side = (cross >= 0) and -1 or 1
+  end
   
-  -- 4. Inject bias into the side slots that lead toward the target
-  -- We boost the "shoulder" slots (approx 45 degrees) on the target's side
-  local offset_dir = (cross > 0) and 1 or -1
-  
-  -- Boost slots: Forward + 1 (22.5), Forward + 2 (45), Forward + 3 (67.5)
-  -- This encourages a smooth turn AROUND the obstacle towards the target
-  for i = 1, 3 do
-    local idx = context_module.wrap_index(ctx, forward_slot + (i * offset_dir))
+  -- 4. Inject bias into flank slots
+  -- We boost slots 45-90 degrees to the chosen side relative to the TARGET vector
+  -- This creates a "Virtual Target" to the side of the obstacle
+  for i = 2, 4 do -- Offset 2,3,4 slots (approx 45-90 deg)
+    local idx = context_module.wrap_index(ctx, target_slot + (i * side))
     ctx.interest[idx] = ctx.interest[idx] + bias
   end
+  
+  return side
 end
 
 return danger

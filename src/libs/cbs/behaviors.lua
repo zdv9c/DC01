@@ -129,4 +129,28 @@ function behaviors.add_tether(ctx, current_position, spawn_position, leash_radiu
   end
 end
 
+-- Adds massive interest boost to specific direction if path is clear
+-- Known as "Path Locking" or "Intent Enforcement"
+-- @param ctx: context
+-- @param target_dir: vec2 - normalized direction to target
+-- @param boost: number - how much extra interest to add (default 10.0)
+function behaviors.add_path_locking(ctx, target_dir, boost)
+  boost = boost or 10.0
+  
+  -- Find the single slot that best aligns with the target
+  local best_slot = 1
+  local max_dot = -1.0
+  
+  for i = 1, ctx.resolution do
+    local dot = vec2.dot(ctx.slots[i], target_dir)
+    if dot > max_dot then
+      max_dot = dot
+      best_slot = i
+    end
+  end
+  
+  -- Inject the boost directly into that slot
+  ctx.interest[best_slot] = ctx.interest[best_slot] + boost
+end
+
 return behaviors

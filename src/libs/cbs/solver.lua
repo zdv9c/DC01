@@ -10,51 +10,50 @@ local solver = {}
 -- Each slot contributes proportionally to its masked weight
 -- @param ctx: context
 -- @return {direction = vec2, magnitude = number}
+-- Solves for final steering direction using the "Best Peak" approach
+-- Finds the slot with highest masked interest and interpolates with neighbors
+-- @param ctx: context
+-- @return {direction = vec2, magnitude = number}
 function solver.solve(ctx)
-  -- Compute weighted average of all directions
-  local sum_x = 0
-  local sum_y = 0
-  local total_weight = 0
-  local max_weight = 0
+  local max_value = 0
+  local best_index = 0
   
+  -- 1. Apply Masking & Find Best Slot
+  -- We use a non-linear mask: as danger rises, interest is penalized exponentially
+  local masked_values = {}
   for i = 1, ctx.resolution do
-    -- Masked weight: interest reduced by danger
-    local weight = ctx.interest[i] * (1.0 - ctx.danger[i])
+    local d = ctx.danger[i]
+    local interest = ctx.interest[i]
     
-    if weight > 0.001 then
-      local slot = ctx.slots[i]
-      sum_x = sum_x + slot.x * weight
-      sum_y = sum_y + slot.y * weight
-      total_weight = total_weight + weight
-    end
+    -- Hard Mask: If danger is extremely high, interest becomes 0
+    -- If danger is moderate, interest is suppressed quadratically
+    local mask = 1.0 - (d * d)
+    if d > 0.85 then mask = 0 end
     
-    if weight > max_weight then
-      max_weight = weight
+    local val = interest * mask
+    masked_values[i] = val
+    
+    if val > max_value then
+      max_value = val
+      best_index = i
     end
   end
   
-  -- If no valid directions, return zero
-  if total_weight < 0.001 then
+  -- 2. Handle "No Path Found" case
+  if best_index == 0 or max_value < 0.001 then
     return {
       direction = {x = 0, y = 0},
       magnitude = 0.0
     }
   end
   
-  -- Normalize to get average direction
-  local avg_x = sum_x / total_weight
-  local avg_y = sum_y / total_weight
-  
-  -- Normalize the result
-  local len = math.sqrt(avg_x * avg_x + avg_y * avg_y)
-  if len > 0.001 then
-    avg_x = avg_x / len
-    avg_y = avg_y / len
-  end
+  -- 3. Interpolate between the best slot and its neighbors
+  -- This provides sub-slot precision for smooth aiming
+  local interpolated_dir = solver.interpolate_direction(ctx, masked_values, best_index)
   
   return {
-    direction = {x = avg_x, y = avg_y},
-    magnitude = max_weight  -- Report max weight for magnitude check
+    direction = interpolated_dir,
+    magnitude = math.min(1.0, max_value)
   }
 end
 
@@ -104,7 +103,11 @@ function solver.solve_simple(ctx)
   local max_index = 1
 
   for i = 1, ctx.resolution do
-    local masked = ctx.interest[i] * (1.0 - ctx.danger[i])
+    local d = ctx.danger[i]
+    local mask = 1.0 - (d * d)
+    if d > 0.85 then mask = 0 end
+    
+    local masked = ctx.interest[i] * mask
 
     if masked > max_value then
       max_value = masked

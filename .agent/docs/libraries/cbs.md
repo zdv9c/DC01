@@ -155,7 +155,7 @@ Faster solver without interpolation (less smooth).
 ### Utilities
 
 #### `CBS.advance_cursor(cursor, dt, speed)`
-Advances noise cursor for wander behavior.
+Resets noise cursor for wander behavior.
 
 #### `CBS.vec2`
 Exposed vector utilities: `new`, `normalize`, `dot`, `scale`, `add`, `sub`, `rotate`, etc.
@@ -181,7 +181,7 @@ Returns array of `{slot = vec2, value = number}` for visualization.
 
 ### System Pattern (Shell/Orchestrator/Pure)
 
-**Shell** (system_ai_movement.lua):
+**Shell** (ai_movement.lua):
 - Query entities with steering components
 - Extract position, velocity, state
 - **Perform raycasts** (only layer with world access)

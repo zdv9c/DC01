@@ -23,4 +23,7 @@ Concord.component("SteeringState", function(c, spawn_x, spawn_y, leash_radius, s
   -- Raycast state
   c.raycast_timer = 0.0               -- Timer for throttled raycast updates
   c.last_ray_results = nil            -- Cached slot ray results for visualization
+  
+  -- Persistence state
+  c.deadlock_side = 0                 -- Persistent bias direction (0 = none, 1 = left, -1 = right)
 end)

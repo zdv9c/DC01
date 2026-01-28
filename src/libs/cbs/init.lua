@@ -79,6 +79,14 @@ function CBS.add_tether(ctx, current_position, spawn_position, leash_radius, ret
   behaviors.add_tether(ctx, current_position, spawn_position, leash_radius, return_weight)
 end
 
+-- Adds massive interest boost if the path is clear (Path Locking)
+-- @param ctx: context
+-- @param target_dir: vec2 - normalized direction
+-- @param boost: number (optional) - defaults to 2.0
+function CBS.add_path_locking(ctx, target_dir, boost)
+  behaviors.add_path_locking(ctx, target_dir, boost)
+end
+
 -- ============================================================================
 -- NOISE & VARIATION
 -- ============================================================================

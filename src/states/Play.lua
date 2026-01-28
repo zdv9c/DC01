@@ -39,28 +39,30 @@ function Play:enter()
   
   -- Store camera as world resource for systems to access
   self.world:setResource("camera", self.camera)
+  self.world:setResource("dev_mode", true) -- Default dev mode to ON
   
   -- Add systems in order
-  local InputSystem = require "systems.system_input"
-  local AIMovementSystem = require "systems.system_ai_movement"
-  local PathfindingSystem = require "systems.system_pathfinding"
-  local MovementSystem = require "systems.system_movement"
-  local CollisionSystem = require "systems.system_collision"
-  local CameraSystem = require "systems.system_camera"
-  local DebugSystem = require "systems.system_debug"
-  local DebugCBSSystem = require "systems.system_debug_cbs"
-  local RenderingSystem = require "systems.system_rendering"
+  local InputSystem = require "systems.input"
+  local AIMovementSystem = require "systems.ai_movement"
+  local PathfindingSystem = require "systems.pathfinding"
+  local MovementSystem = require "systems.movement"
+  local CollisionSystem = require "systems.collision"
+  local CameraSystem = require "systems.camera"
+  local DevToolsSystem = require "systems.dev_tools"
+  local DevInspectorSystem = require "systems.dev_inspector"
+  local BackgroundSystem = require "systems.background"
+  local RenderingSystem = require "systems.rendering"
   
   self.world:addSystem(InputSystem)
-  self.world:addSystem(require "systems.system_sandbox") -- Sandbox interaction
+  self.world:addSystem(DevToolsSystem)
   self.world:addSystem(PathfindingSystem)
   self.world:addSystem(AIMovementSystem)
   self.world:addSystem(MovementSystem)
   self.world:addSystem(CollisionSystem)
   self.world:addSystem(CameraSystem)
+  self.world:addSystem(BackgroundSystem)
+  self.world:addSystem(DevInspectorSystem)
   self.world:addSystem(RenderingSystem)
-  self.world:addSystem(DebugSystem)  -- After all logic, before rendering
-  self.world:addSystem(DebugCBSSystem)  -- CBS weight visualization
   
   -- Create entities
   self:createWorld()
@@ -130,9 +132,7 @@ function Play:draw()
     love.graphics.clear()
     self.world:emit("draw")
     
-    -- UI overlay (now in logical coordinates)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.print("WASD/Arrows to move", 10, 10)
+
   love.graphics.setCanvas()
   
   -- Draw scaled canvas to screen
@@ -141,6 +141,9 @@ function Play:draw()
 end
 
 function Play:keypressed(key)
+  print("[INPUT] Key pressed: " .. tostring(key))
+  self.world:emit("keypressed", key)
+  
   if key == "escape" then
     love.event.quit()
   end

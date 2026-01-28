@@ -218,58 +218,36 @@ end
 -- @param waypoints: table - list of waypoints {x, y}
 -- @param pos: {x, y} - agent current position
 -- @param reached_threshold: number - distance to consider waypoint reached
--- @return table - pruned waypoints
--- Prunes waypoints that the agent is already past
+-- Finds the furthest reachable waypoint via Line of Sight
+-- This ensures the agent always targets the furthest clear point, 
+-- which stabilizes movement and prevents stuttering on recalculations.
 -- @param waypoints: table - list of waypoints {x, y}
 -- @param pos: {x, y} - agent current position
--- @return table - pruned waypoints
+-- @return table - pruned waypoints starting with the best target
 function prune_initial_waypoints(waypoints, pos)
-  local pruned = {}
-  for i, wp in ipairs(waypoints) do
-    table.insert(pruned, {x = wp.x, y = wp.y})
-  end
+  if #waypoints == 0 then return {} end
   
-  -- Tight threshold (0.2 tiles) for pruning to avoid over-skipping
-  local prune_dist = 0.2 * TILE_SIZE
-  local prune_dist_sq = prune_dist * prune_dist
+  -- Convert agent to grid for LOS checks
+  local gx, gy = world_to_grid(pos.x, pos.y)
   
-  -- While we have a "next" waypoint to compare to
-  while #pruned > 1 do
-    local p1 = pruned[1]
-    local p2 = pruned[2]
+  -- Find the furthest waypoint we have LOS to
+  local furthest_idx = 1
+  -- We can skip nodes 1 to N if we have LOS to N.
+  -- Nodes are already corners from smooth_path, so this just skips "reached" or "visible-behind" corners.
+  for i = #waypoints, 1, -1 do
+    local wp = waypoints[i]
+    local gwx, gwy = world_to_grid(wp.x, wp.y)
     
-    -- Check 1: Are we already at p1?
-    local dx1, dy1 = p1.x - pos.x, p1.y - pos.y
-    local is_at_p1 = (dx1*dx1 + dy1*dy1 < prune_dist_sq)
-    
-    -- Check 2: Are we "beyond" p1 in the direction of p2?
-    local is_past_p1 = false
-    local v12x, v12y = p2.x - p1.x, p2.y - p1.y
-    local mag12_sq = v12x*v12x + v12y*v12y
-    
-    if mag12_sq > 0.001 then
-      local v1Ax, v1Ay = pos.x - p1.x, pos.y - p1.y
-      local dot = v12x * v1Ax + v12y * v1Ay
-      -- Only consider it "past" if the dot product is positive (ahead)
-      if dot > 0 then
-        is_past_p1 = true
-      end
-    end
-
-    -- Safety Check: Even if we are "past" p1, we must have LOS to p2 to skip p1
-    if is_at_p1 or is_past_p1 then
-      local gx1, gy1 = world_to_grid(pos.x, pos.y)
-      local gx2, gy2 = world_to_grid(p2.x, p2.y)
-      
-      if has_line_of_sight(gx1, gy1, gx2, gy2) then
-        table.remove(pruned, 1)
-      else
-        -- No LOS to next node; we MUST hit p1 first to go around the corner
-        break
-      end
-    else
+    if has_line_of_sight(gx, gy, gwx, gwy) then
+      furthest_idx = i
       break
     end
+  end
+  
+  -- Create the new pruned list starting from that furthest visible point
+  local pruned = {}
+  for i = furthest_idx, #waypoints do
+    table.insert(pruned, {x = waypoints[i].x, y = waypoints[i].y})
   end
   
   return pruned
@@ -327,6 +305,12 @@ function pathfinding:update(dt)
     local path = entity.Path
     local pos = entity.Transform
     
+    -- Sync with target entity if it exists
+    if path.target_entity and path.target_entity.Transform then
+      path.final_target.x = path.target_entity.Transform.x
+      path.final_target.y = path.target_entity.Transform.y
+    end
+    
     -- Check if we need to refresh the path
     path.refresh_timer = path.refresh_timer + dt
     
@@ -340,11 +324,17 @@ function pathfinding:update(dt)
     -- 2. Target movement check
     local dx = path.final_target.x - path.last_target_pos.x
     local dy = path.final_target.y - path.last_target_pos.y
-    local dist_sq = dx*dx + dy*dy
-    local threshold = AI_CONFIG.pathfinding.target_move_threshold * TILE_SIZE
-    
-    if dist_sq > threshold * threshold then
+    local move_threshold = AI_CONFIG.pathfinding.target_move_threshold * TILE_SIZE
+    if dx*dx + dy*dy > move_threshold * move_threshold then
       needs_refresh = true
+    end
+    
+    -- 3. Proximity dampening
+    -- If we are already very close (within 3 tiles), stop recalculating pathfinding.
+    -- CBS (local steering) is better at the "final approach" than A*.
+    local dist_to_target_sq = (pos.x - path.final_target.x)^2 + (pos.y - path.final_target.y)^2
+    if dist_to_target_sq < (3 * TILE_SIZE)^2 then
+       needs_refresh = false
     end
     
     -- If refresh needed, run A*

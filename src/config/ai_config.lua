@@ -32,13 +32,13 @@ return {
     danger_range = 3,  -- 2 tiles = 32px
     
     -- Danger falloff curve
-    -- "linear": danger decreases linearly with distance
     -- "quadratic": danger stays low until very close, then spikes
-    danger_falloff = "quadratic",
+    -- "logarithmic": danger is high even at distance (hard shell)
+    danger_falloff = "linear",
     
     -- Deadlock Resolution (Symmetry Breaking)
-    deadlock_threshold = 0.5,  -- Trigger if front (0 deg) danger > this
-    deadlock_bias = 0.5,       -- Interest bonus to add to clearer side
+    deadlock_threshold = 0.25,  -- Trigger if Target path danger > this
+    deadlock_bias = 0.25,       -- Interest bonus to add to clearer side
   },
   
   -- ============================================================================
@@ -77,7 +77,7 @@ return {
     velocity_smoothing = 4.0,
     
     -- Turn smoothing rate (higher = tighter turns, lower = wider arcs)
-    turn_smoothing = 20.0,
+    turn_smoothing = 10.0,
     
     -- Minimum speed percentage even when magnitude is low (0.0 to 1.0)
     -- Prevents NPC from "crawling" too much in complex areas
@@ -95,7 +95,7 @@ return {
   noise = {
     -- Strength of noise added to steering (0.0 = none, 1.0 = full)
     -- Higher = more wandery movement even when seeking
-    amount = 0.33,
+    amount = 0.15,
     
     -- Spatial scale of noise (roughness around the direction ring)
     -- Higher = more rapid direction changes

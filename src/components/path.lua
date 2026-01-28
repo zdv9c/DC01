@@ -21,6 +21,9 @@ return Concord.component("Path", function(c, goal_x, goal_y)
   -- The ultimate destination (may be different from last waypoint)
   c.final_target = {x = goal_x or 0, y = goal_y or 0}
   
+  -- Dynamic target (optional entity reference)
+  c.target_entity = nil
+  
   -- Current index in smooth path (usually 1 if consuming waypoints)
   c.current_index = 1
   

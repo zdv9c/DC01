@@ -1,7 +1,3 @@
----
-trigger: always_on
----
-
 # Project Specifications
 
 ## Overview
@@ -38,4 +34,4 @@ Development proceeds via iterating increasingly complex vertical slices by gradu
 - **ECS Framework**: Concord
 - **Pattern**: Shell/Orchestrator/Pure Function layers
 - **Components**: Individual files in `components/`
-- **Systems**: Named `system_*.lua`, ordered: Input → Movement → Collision → Camera → Rendering
+- **Systems**: Named `<domain>.lua`, ordered: Input → Movement → Collision → Camera → Rendering

@@ -38,38 +38,11 @@ function rendering:draw()
   -- Gamera wraps all world-space rendering in a draw() callback
   if camera then
     camera:draw(function()
-      self:drawCheckerboard(camera)
       self:drawEntities()
     end)
   else
     -- Fallback: draw without camera
-    self:drawCheckerboard(nil)
     self:drawEntities()
-  end
-end
-
-function rendering:drawCheckerboard(camera)
-  local cam_x, cam_y = 0, 0
-  local cam_w, cam_h = love.graphics.getDimensions()
-  
-  if camera then
-    -- Get camera visible area in world space
-    cam_x, cam_y, cam_w, cam_h = camera:getVisible()
-  end
-  
-  -- Calculate visible tile range
-  local bounds = calculate_visible_bounds(cam_x, cam_y, cam_w, cam_h, TILE_SIZE)
-  
-  -- Draw tiles
-  for tile_x = bounds.start_x, bounds.end_x do
-    for tile_y = bounds.start_y, bounds.end_y do
-      local world_x = tile_x * TILE_SIZE
-      local world_y = tile_y * TILE_SIZE
-      
-      local color = get_checkerboard_color(tile_x, tile_y)
-      love.graphics.setColor(color)
-      love.graphics.rectangle("fill", world_x, world_y, TILE_SIZE, TILE_SIZE)
-    end
   end
 end
 
@@ -81,7 +54,29 @@ function rendering:drawEntities()
     love.graphics.setColor(sprite.color)
     
     if sprite.type == "circle" then
-      love.graphics.circle("fill", pos.x, pos.y, sprite.radius)
+      -- If entity has steering, draw as directional triangle/arrow
+      if entity.SteeringState then
+        local st = entity.SteeringState
+        local angle = math.atan2(st.forward_y or 0, st.forward_x or 1)
+        local r = sprite.radius
+        
+        love.graphics.push()
+        love.graphics.translate(pos.x, pos.y)
+        love.graphics.rotate(angle)
+        
+        -- Draw Arrow/Triangle pointing Right (0 rad)
+        -- Tip at `r`, broad base at `-r`
+        love.graphics.polygon("fill",
+           r, 0,           -- Nose
+          -r, -r * 0.8,    -- Top Tail
+          -r * 0.5, 0,     -- Inner Notch
+          -r,  r * 0.8     -- Bottom Tail
+        )
+        love.graphics.pop()
+      else
+        -- Fallback to circle
+        love.graphics.circle("fill", pos.x, pos.y, sprite.radius)
+      end
     else
       love.graphics.rectangle(
         "fill",
@@ -101,37 +96,5 @@ end
 ----------------------------------------------------------------------------]]--
 
 -- No orchestrators needed - drawing is inherently imperative
-
---[[----------------------------------------------------------------------------
-  PURE FUNCTIONS - Math & Logic
-----------------------------------------------------------------------------]]--
-
--- Calculates the range of tiles visible in camera bounds
--- @param cam_x: number - camera left edge world x
--- @param cam_y: number - camera top edge world y
--- @param cam_w: number - camera width
--- @param cam_h: number - camera height
--- @param tile_size: number - size of each tile
--- @return {start_x, start_y, end_x, end_y: number}
-function calculate_visible_bounds(cam_x, cam_y, cam_w, cam_h, tile_size)
-  return {
-    start_x = math.floor(cam_x / tile_size) - 1,
-    start_y = math.floor(cam_y / tile_size) - 1,
-    end_x = math.ceil((cam_x + cam_w) / tile_size) + 1,
-    end_y = math.ceil((cam_y + cam_h) / tile_size) + 1
-  }
-end
-
--- Returns checkerboard color for a tile based on coordinates
--- @param tile_x: number - tile x index
--- @param tile_y: number - tile y index
--- @return {r, g, b: number}
-function get_checkerboard_color(tile_x, tile_y)
-  if (tile_x + tile_y) % 2 == 0 then
-    return COLOR_DARK
-  else
-    return COLOR_LIGHT
-  end
-end
 
 return rendering

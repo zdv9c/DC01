@@ -14,3 +14,5 @@ require "components.camera_target"
 require "components.debug"
 require "components.steering_state"
 require "components.path"
+require "components.dev_only"
+
