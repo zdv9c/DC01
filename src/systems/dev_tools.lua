@@ -65,6 +65,8 @@ function dev_tools:mousereleased(x, y, button)
       self:save_obstacles()
     end
     self.interaction_mode = nil
+    self.last_grid_x = nil
+    self.last_grid_y = nil
   end
 end
 
@@ -108,18 +110,10 @@ function dev_tools:update_ai_targets(wx, wy)
     if path then
       path.target_entity = player_to_follow
       if not player_to_follow then
+        if not path.final_target then path.final_target = {} end
         path.final_target.x, path.final_target.y = wx, wy
       end
       path.refresh_timer = 100 -- Force refresh
-    end
-    local steering = entity.SteeringState
-    if steering then
-      steering.has_target = true
-      if player_to_follow then
-        steering.target_x, steering.target_y = player_to_follow.Transform.x, player_to_follow.Transform.y
-      else
-        steering.target_x, steering.target_y = wx, wy
-      end
     end
   end
   

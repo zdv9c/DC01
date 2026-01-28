@@ -54,13 +54,11 @@ return {
     -- If target moves more than this many tiles, recalculate immediately
     target_move_threshold = 3,
     
-    -- Distance (in tiles) to consider waypoint "reached" and advance to next
     -- Lower = more precise path following, but may cause jitter
     waypoint_reached = 0.5,  -- 0.5 tiles = 8px
-    
-    -- When to use A* vs direct CBS
-    -- If target is within this range AND has LOS, skip pathfinding
-    direct_range = 4,  -- 4 tiles = 64px
+
+    -- Threshold to stop locking onto target (prevent overshoot jitter)
+    path_lock_range = 3.0,   -- 3 tiles = 48px
   },
   
   -- ============================================================================
@@ -74,10 +72,10 @@ return {
     
     -- Velocity smoothing rate (higher = snappier, lower = more gradual)
     -- Controls how fast velocity blends toward target velocity
-    velocity_smoothing = 4.0,
+    velocity_smoothing = 2.0,
     
     -- Turn smoothing rate (higher = tighter turns, lower = wider arcs)
-    turn_smoothing = 10.0,
+    turn_smoothing = 5.0,
     
     -- Minimum speed percentage even when magnitude is low (0.0 to 1.0)
     -- Prevents NPC from "crawling" too much in complex areas

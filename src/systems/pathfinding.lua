@@ -47,6 +47,12 @@ local function grid_to_world(gx, gy)
   return (gx - 1) * TILE_SIZE + TILE_SIZE / 2, (gy - 1) * TILE_SIZE + TILE_SIZE / 2
 end
 
+-- Check if a grid coordinate is blocked
+local function is_grid_blocked(gx, gy)
+  if gx < 1 or gx > MAP_WIDTH or gy < 1 or gy > MAP_HEIGHT then return true end
+  return collision_map[gy] and collision_map[gy][gx] == 1
+end
+
 -- Check line of sight (Bresenham's line algorithm)
 -- Returns true if line between (x0,y0) and (x1,y1) is clear
 -- Input is in GRID coordinates
@@ -59,27 +65,42 @@ local function has_line_of_sight(x0, y0, x1, y1)
   
   while true do
     -- Check collision at current point
-    if x0 >= 1 and x0 <= MAP_WIDTH and y0 >= 1 and y0 <= MAP_HEIGHT then
-      if collision_map[y0] and collision_map[y0][x0] == 1 then
-        return false -- Blocked
-      end
+    if is_grid_blocked(x0, y0) then
+      return false -- Blocked
     end
     
     if x0 == x1 and y0 == y1 then break end
     
     local e2 = 2 * err
+    local x_changed, y_changed = false, false
+    
+    -- Track current position before moving
+    local prev_x, prev_y = x0, y0
+
     if e2 >= dy then
       err = err + dy
       x0 = x0 + sx
+      x_changed = true
     end
     if e2 <= dx then
       err = err + dx
       y0 = y0 + sy
+      y_changed = true
+    end
+
+    -- If we moved diagonally, check if we are zipping through a diagonal gap
+    -- A gap is blocked if BOTH tiles we are cutting between are occupied
+    if x_changed and y_changed then
+      if is_grid_blocked(prev_x + sx, prev_y) and is_grid_blocked(prev_x, prev_y + sy) then
+        return false -- Squeezing through diagonal gap
+      end
     end
   end
   
   return true
 end
+
+
 
 -- Smooth a path by removing redundant waypoints (Theta* style post-processing)
 local function smooth_path(nodes)
@@ -166,7 +187,11 @@ function pathfinding:rebuild_grid()
   finder_object = Pathfinder(grid_object, 'JPS', 0) -- Jump Point Search, walkable=0
   
   -- Prevent corner cutting for safer movement
-  finder_object:setMode('ORTHOGONAL') 
+  finder_object:setMode('ORTHOGONAL')
+  
+  -- Increment version so agents know to update
+  self.grid_version = self.grid_version + 1
+  print("[Pathfinding] Grid Rebuilt. Version: " .. self.grid_version)
 end
 
 --[[----------------------------------------------------------------------------
@@ -175,43 +200,31 @@ end
 
 function pathfinding:init()
   self.grid_dirty = true
+  self.grid_version = 0
   self.obstacle_cache = {}
+  
+  -- Manually wire up the 'obstacles' pool callbacks
+  -- Concord only calls system:entityAdded for the PRIMARY pool (pool)
+  -- For secondary pools (obstacles), we must attach handlers directly.
+  
+  self.obstacles.onAdded = function(pool, entity)
+    if entity.Collider and entity.Collider.type == "static" then
+      print("[Pathfinding] Static Obstacle Added (Pool Hook)")
+      self.grid_dirty = true
+    end
+  end
+  
+  self.obstacles.onRemoved = function(pool, entity)
+    if entity.Collider and entity.Collider.type == "static" then
+      print("[Pathfinding] Static Obstacle Removed (Pool Hook)")
+      self.grid_dirty = true
+    end
+  end
 end
 
--- Robust integrity check: Detects New, Moved, and Removed obstacles
-function pathfinding:check_static_integrity()
-  local current_lookup = {}
-  
-  -- 1. Check for New or Moved obstacles
-  for _, entity in ipairs(self.obstacles) do
-    -- Mark as present
-    current_lookup[entity] = true
-    
-    if entity.Collider and entity.Collider.type == "static" then
-       local pos = entity.Transform
-       local cached = self.obstacle_cache[entity]
-       
-       -- Check if New (uncached)
-       if not cached then
-         return true 
-       end
-       
-       -- Check if Moved
-       if math.abs(pos.x - cached.x) > 0.1 or math.abs(pos.y - cached.y) > 0.1 then
-         return true
-       end
-    end
-  end
-  
-  -- 2. Check for Removed obstacles
-  -- If it's in cache but not in current obstacles list, it was removed
-  for entity, _ in pairs(self.obstacle_cache) do
-    if not current_lookup[entity] then
-      return true
-    end
-  end
-  
-  return false
+-- Force a manual rebuild (call this if a static object moves)
+function pathfinding:force_rebuild()
+  self.grid_dirty = true
 end
 
 -- Prunes waypoints that the agent is already past
@@ -264,41 +277,6 @@ function pathfinding:update(dt)
   
   if not finder_object then return end -- No grid yet
   
-  local any_pathfinding_needed = false
-  
-  -- First pass: Check if any agent needs pathfinding
-  for _, entity in ipairs(self.pool) do
-     -- (Logic to check refresh timer/threshold without resetting it yet)
-     -- Easier: copy logic or just loop
-     local path = entity.Path
-     
-     -- Check timer
-     if path.refresh_timer + dt >= AI_CONFIG.pathfinding.refresh_interval then
-       any_pathfinding_needed = true
-       break
-     end
-     
-     -- Check movement (approximate, since we don't have new dt added to timer yet, but it's close)
-     if path.final_target then
-       local dx = path.final_target.x - path.last_target_pos.x
-       local dy = path.final_target.y - path.last_target_pos.y
-       if dx*dx + dy*dy > (AI_CONFIG.pathfinding.target_move_threshold * TILE_SIZE)^2 then
-         any_pathfinding_needed = true
-         break
-       end
-     end
-  end
-  
-  -- Lazy Integrity Check: Only start scanning static blocks if we are about to pathfind
-  if any_pathfinding_needed then
-     if self:check_static_integrity() then
-        self:rebuild_grid()
-        self.grid_dirty = false -- Clear flag
-        -- print("[Pathfinding] Grid rebuilt (Movement detected)")
-     end
-  end
-
-  
   if not finder_object then return end -- No grid yet
   
   for _, entity in ipairs(self.pool) do
@@ -307,90 +285,102 @@ function pathfinding:update(dt)
     
     -- Sync with target entity if it exists
     if path.target_entity and path.target_entity.Transform then
+      if not path.final_target then path.final_target = {x=0, y=0} end
       path.final_target.x = path.target_entity.Transform.x
       path.final_target.y = path.target_entity.Transform.y
     end
     
-    -- Check if we need to refresh the path
-    path.refresh_timer = path.refresh_timer + dt
-    
-    local needs_refresh = false
-    
-    -- 1. Timer check
-    if path.refresh_timer >= AI_CONFIG.pathfinding.refresh_interval then
-      needs_refresh = true
-    end
-    
-    -- 2. Target movement check
-    local dx = path.final_target.x - path.last_target_pos.x
-    local dy = path.final_target.y - path.last_target_pos.y
-    local move_threshold = AI_CONFIG.pathfinding.target_move_threshold * TILE_SIZE
-    if dx*dx + dy*dy > move_threshold * move_threshold then
-      needs_refresh = true
-    end
-    
-    -- 3. Proximity dampening
-    -- If we are already very close (within 3 tiles), stop recalculating pathfinding.
-    -- CBS (local steering) is better at the "final approach" than A*.
-    local dist_to_target_sq = (pos.x - path.final_target.x)^2 + (pos.y - path.final_target.y)^2
-    if dist_to_target_sq < (3 * TILE_SIZE)^2 then
-       needs_refresh = false
-    end
-    
-    -- If refresh needed, run A*
-    if needs_refresh then
-      path.refresh_timer = 0
-      path.last_target_pos.x = path.final_target.x
-      path.last_target_pos.y = path.final_target.y
+    -- Only proceed if we have a valid destination
+    if path.final_target then
+      -- Check if we need to refresh the path
+      path.refresh_timer = path.refresh_timer + dt
       
-      -- Start and goal in grid coords
-      local sx, sy = world_to_grid(pos.x, pos.y)
-      local ex, ey = world_to_grid(path.final_target.x, path.final_target.y)
+      local needs_refresh = false
       
-      -- Bound checks
-      if collision_map[sy] and collision_map[sy][sx] and collision_map[ey] and collision_map[ey][ex] then
-        -- Find path
-        -- Jumper returns a path iterator, or nil
-        local path_obj = finder_object:getPath(sx, sy, ex, ey)
+      -- 1. Version check (map changed)
+      if path.grid_version ~= self.grid_version then
+        needs_refresh = true
+      end
+      
+      -- 2. Timer check for retries (if path failed or is old)
+      -- Keeping a SLOW timer just in case an agent gets stuck is usually good practice,
+      -- but per user request, we are relying on events.
+      -- However, if target MOVES, we still need to update.
+
+      
+      -- 2. Target movement check
+      local dx = path.final_target.x - path.last_target_pos.x
+      local dy = path.final_target.y - path.last_target_pos.y
+      local move_threshold = AI_CONFIG.pathfinding.target_move_threshold * TILE_SIZE
+      if dx*dx + dy*dy > move_threshold * move_threshold then
+        needs_refresh = true
+      end
+      
+      -- 3. Timer check (Periodic refresh)
+      if path.refresh_timer > AI_CONFIG.pathfinding.refresh_interval then
+         needs_refresh = true
+      end
+      
+      -- If refresh needed, run A*
+      if needs_refresh then
+        path.refresh_timer = 0
+        path.last_target_pos.x = path.final_target.x
+        path.last_target_pos.y = path.final_target.y
+        path.grid_version = self.grid_version
         
-        if path_obj then
-          path.waypoints = {}
-          path.current_index = 1
-          path.is_valid = true
-          path.is_finished = false
+        -- Start and goal in grid coords
+        local sx, sy = world_to_grid(pos.x, pos.y)
+        local ex, ey = world_to_grid(path.final_target.x, path.final_target.y)
+        
+        -- Bound checks & A*
+        if collision_map[sy] and collision_map[sy][sx] and collision_map[ey] and collision_map[ey][ex] then
+          -- Find path
+          -- Jumper returns a path iterator, or nil
+          local path_obj = finder_object:getPath(sx, sy, ex, ey)
           
-          -- Convert nodes to world waypoints
-          local nodes = {}
-          for node, count in path_obj:nodes() do
-            local wx, wy = grid_to_world(node:getX(), node:getY())
-            table.insert(nodes, {x = wx, y = wy})
-          end
-          
-          -- Apply smoothing
-          local smoothed = smooth_path(nodes)
-          
-          -- Prune waypoints we are already past to prevent "snap-back" jerks
-          path.waypoints = prune_initial_waypoints(smoothed, pos)
-             
-          if AI_CONFIG.debug.log_pathfinding then
-             print(string.format("[Pathfinding] Found path with %d nodes (smoothed to %d)", 
-               path_obj:getLength(), #path.waypoints))
+          if path_obj then
+            path.waypoints = {}
+            path.current_index = 1
+            path.is_valid = true
+            path.is_finished = false
+            
+            -- Convert nodes to world waypoints
+            local nodes = {}
+            for node, count in path_obj:nodes() do
+              local wx, wy = grid_to_world(node:getX(), node:getY())
+              table.insert(nodes, {x = wx, y = wy})
+            end
+            
+            -- Apply smoothing
+            local smoothed = smooth_path(nodes)
+            
+            -- Prune waypoints we are already past to prevent "snap-back" jerks
+            path.waypoints = prune_initial_waypoints(smoothed, pos)
+               
+            if AI_CONFIG.debug.log_pathfinding then
+               print(string.format("[Pathfinding] Found path with %d nodes (smoothed to %d)", 
+                 path_obj:getLength(), #path.waypoints))
+            end
+          else
+            -- Path search failed (blocked or unreachable)
+            -- Clear existing waypoints so we don't visualize/follow stale path
+            path.waypoints = {} 
+            path.current_index = 1
+            path.is_valid = false
+            
+            if AI_CONFIG.debug.log_pathfinding then
+              print("[Pathfinding] NO PATH found from ("..sx..","..sy..") to ("..ex..","..ey..")")
+            end
           end
         else
-          -- Path search failed (blocked or unreachable)
-          -- Clear existing waypoints so we don't visualize/follow stale path
-          path.waypoints = {} 
-          path.current_index = 1
+          -- Start or end is out of bounds
           path.is_valid = false
-          
-          if AI_CONFIG.debug.log_pathfinding then
-            print("[Pathfinding] NO PATH found from ("..sx..","..sy..") to ("..ex..","..ey..")")
-          end
         end
-      else
-        -- Start or end is out of bounds
-        path.is_valid = false
       end
+    else
+      -- No target, ensure path invalid
+      path.waypoints = {}
+      path.is_valid = false
     end
   end
 end

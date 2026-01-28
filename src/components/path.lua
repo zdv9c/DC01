@@ -30,6 +30,7 @@ return Concord.component("Path", function(c, goal_x, goal_y)
   -- Tracking for when to re-path
   c.refresh_timer = 0
   c.last_target_pos = {x = goal_x or 0, y = goal_y or 0}
+  c.grid_version = 0
   
   -- Status flags
   c.is_valid = false       -- True if a valid path exists

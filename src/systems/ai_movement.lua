@@ -93,13 +93,15 @@ function ai_movement:update(dt)
        steering.has_target = true
     end
     
-    -- 0. Continuous Path Pruning (Greedy LOS)
-    -- If we can see waypoints further down the line, skip intermediate ones
-    -- This makes the agent "cut corners" naturally as they become visible.
+    -- 0. Continuous Path Pruning (Greedy LOS) - DISABLED
+    -- Relying on standard waypoint following for stability
+    --[[
     if path.is_valid and #path.waypoints > 1 then
       -- Start checking from the furthest possible waypoint for one-frame shortcuts
+      -- Limit lookahead to preventing aggressive corner cutting (e.g. only check next 3 nodes)
+      local lookahead_limit = math.min(#path.waypoints, 4)
       local furthest_visible = 1
-      for i = #path.waypoints, 2, -1 do
+      for i = lookahead_limit, 2, -1 do
         if has_clear_los(pos, path.waypoints[i], obstacle_data, entity_radius, entity) then
           furthest_visible = i
           break
@@ -111,6 +113,7 @@ function ai_movement:update(dt)
         table.remove(path.waypoints, 1)
       end
     end
+    ]]--
     
     -- Call orchestrator
     local result = compute_ai_steering(
@@ -161,9 +164,19 @@ function compute_ai_steering(pos, vel, steering, path, obstacles, entity_radius,
       local dist = math.sqrt(dx*dx + dy*dy)
       
       if dist < PATH_CFG.waypoint_reached * AI_CONFIG.TILE_SIZE then
-        -- Advance to next waypoint
-        path.current_index = math.min(path.current_index + 1, #path.waypoints)
-        wp = path.waypoints[path.current_index]
+        if path.current_index >= #path.waypoints then
+           -- Reached destination: Request target removal
+           path.final_target = nil
+           path.waypoints = {}
+           path.is_valid = false
+           path.current_index = 1
+           steering.has_target = false
+           immediate_target = nil
+        else
+           -- Advance to next waypoint
+           path.current_index = path.current_index + 1
+           wp = path.waypoints[path.current_index]
+        end
       end
       
       immediate_target = wp
@@ -220,8 +233,8 @@ function compute_ai_steering(pos, vel, steering, path, obstacles, entity_radius,
   -- 3b. Apply Path Locking (Clear Line of Sight Check)
   -- If we have a target and we can see it clearly, LOCK onto it
   -- Only engage if we are far enough away (prevent overshoot dancing)
-  local approach_radius = 48 -- 3 tiles
-  if has_movement and vec_to_target and dist_to_target > approach_radius then
+  local path_lock_dist = PATH_CFG.path_lock_range * AI_CONFIG.TILE_SIZE
+  if has_movement and vec_to_target and dist_to_target > path_lock_dist then
     local angle_to_target = math.atan2(vec_to_target.y, vec_to_target.x)
     
     -- Offset start by radius + small epsilon to avoid self-intersection artifacts
