@@ -7,13 +7,17 @@
 local Concord = require "libs.Concord"
 local Gamestate = require "libs.hump.gamestate"
 local gamera = require "libs.gamera.gamera"
-local AI_CONFIG = require "config.ai_config"
+
 
 local Play = {}
 
 --[[----------------------------------------------------------------------------
   GAMESTATE CALLBACKS
 ----------------------------------------------------------------------------]]--
+
+local CreatePlayer = require "entities.player"
+local CreateNPC = require "entities.test_npc"
+local CreateBlock = require "entities.obstacle"
 
 function Play:enter()
   -- Load components
@@ -71,55 +75,14 @@ end
 function Play:createWorld()
   -- Create Player
   local player = Concord.entity(self.world)
-  player:give("Transform", 312, 280)
-  player:give("Velocity", 0, 0)
-  player:give("Sprite", {0, 1, 0, 1}, 8)  -- Green circle
-  player:give("Collider", 16, 16, "dynamic")
-  player:give("PlayerControlled")
-  player:give("CameraTarget")  -- Camera follows this entity
-  player:give("Debug", {
-    entity_name = "Player",
-    track_position = true,
-    track_velocity = true,
-    track_collision = true
-  })
+  CreatePlayer(player, 312, 280)
   
-  -- Create static blocks
-  local function createBlock(x, y)
-    local block = Concord.entity(self.world)
-    block:give("Transform", x, y)
-    block:give("Sprite", {0.5, 0.5, 0.5, 1}, 8)  -- Grey
-    block:give("Collider", 16, 16, "static")
-    block:give("Debug", {
-      entity_name = "Block",
-      track_collision = false
-    })
-    return block
-  end
-  
-  -- Wall of blocks
-  -- (Removed: Managed by persistent sandbox system now)
-  
-  -- Another wall for testing slide
-  -- (Removed: Managed by persistent sandbox system now)
-  
-  -- Create AI Actor with CBS wandering
-  local enemy_spawn_x, enemy_spawn_y = 296, 296
+  -- Create AI Actor
+  -- Spawn at 296, 296
   local enemy = Concord.entity(self.world)
-  enemy:give("Transform", enemy_spawn_x, enemy_spawn_y)
-  enemy:give("Velocity", 0, 0, AI_CONFIG.movement.speed, 0) -- kinematic (no friction)
-  enemy:give("Sprite", {1, 1, 0, 1}, 8)  -- Yellow
-  enemy:give("Collider", 16, 16, "dynamic")
-  enemy:give("AIControlled")
-  enemy:give("SteeringState", enemy_spawn_x, enemy_spawn_y, 240, 42)  -- Spawn, 15-tile leash, seed=42
-  enemy:give("Path", enemy_spawn_x, enemy_spawn_y)  -- Initialize path with spawn location
-  enemy:give("Debug", {
-    entity_name = "Enemy",
-    track_position = false,
-    track_velocity = false,
-    track_collision = false,
-    track_cbs = true  -- Enable CBS debug visualization
-  })
+  CreateNPC(enemy, 296, 296)
+  
+  -- Note: Static blocks are now managed by the persistent sandbox system (DevTools)
 end
 
 function Play:update(dt)

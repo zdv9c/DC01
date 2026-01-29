@@ -23,6 +23,7 @@ local dev_tools = Concord.system({
 
 -- Persistence constants
 local SAVE_FILE = "test_obstacles.lua"
+local CreateBlock = require "entities.obstacle"
 
 function dev_tools:init()
   self:load_obstacles()
@@ -165,10 +166,7 @@ end
 
 function dev_tools:create_block(x, y)
   local block = Concord.entity(self:getWorld())
-  block:give("Transform", x, y)
-  block:give("Sprite", {0.5, 0.5, 0.5}, 8, "circle")
-  block:give("Collider", 16, 16, "static")
-  block:give("Debug", { entity_name = "Block", track_collision = false })
+  CreateBlock(block, x, y)
 end
 
 function dev_tools:remove_block_at(gx, gy)
