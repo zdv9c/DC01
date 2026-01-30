@@ -20,10 +20,14 @@ return function(e, x, y)
   -- Spawn, 15-tile leash (240px), seed=42 (default hardcoded for now)
   e:give("SteeringState", x, y, 240, 42)
   e:give("Path", x, y)  -- Initialize path with spawn location
-  
+
+  e:give("SteeringConfig", {
+    --speed = 0,
+    path_lock_boost = 10
+  })
   -- Debugging
   e:give("Debug", {
-    entity_name = "Enemy",
+    entity_name = "Test NPC",
     track_position = false,
     track_velocity = false,
     track_collision = false,

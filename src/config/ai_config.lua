@@ -28,27 +28,44 @@ return {
     resolution = 16,
     
     -- How far to detect obstacles (in tiles)
-    -- Higher = earlier avoidance, but may avoid things NPC could pass
     danger_range = 3,  -- 2 tiles = 32px
     
-    -- Danger falloff curve
-    -- "quadratic": danger stays low until very close, then spikes
-    -- "logarithmic": danger is high even at distance (hard shell)
+    -- Danger falloff curve ("linear", "quadratic", "logarithmic", "cosine")
     danger_falloff = "linear",
     
     -- Deadlock Resolution (Symmetry Breaking)
-    deadlock_threshold = 0.25,  -- Trigger if Target path danger > this
-    deadlock_bias = 0.25,       -- Interest bonus to add to clearer side
+    deadlock_threshold = 0.25,
+    deadlock_bias = 0.25,
+    
+    -- Solver Settings
+    solver = {
+      -- Hard Mask: If danger > this, interest is zeroed (Physically impossible mask)
+      hard_mask_threshold = 0.85, 
+    },
+    
+    -- Danger Map Settings
+    danger = {
+      -- Base angular width of danger shadow behind obstacles (radians)
+      base_spread_angle = math.pi / 4,
+      
+      -- Minimum danger value required to trigger spreading/dilation
+      min_danger_to_spread = 0.05,
+      
+      -- Gaussian dilation factor for proximity danger (smoothing)
+      proximity_dilation = 1.2,
+      
+      -- Padding logic: How many pixels inside the sprite radius count as "collision"
+      -- Used to calculate exact gap distance.
+      collision_padding = 8,
+    }
   },
   
   -- ============================================================================
-  -- A* PATHFINDING SETTINGS
-  -- Strategic navigation around large obstacles
+  -- A* PATHFINDING & TACTICAL SETTINGS
   -- ============================================================================
   
   pathfinding = {
     -- Seconds between automatic path recalculations
-    -- Lower = more responsive, but higher CPU cost
     refresh_interval = 1.0,
     
     -- If target moves more than this many tiles, recalculate immediately
@@ -59,8 +76,27 @@ return {
 
     -- Threshold to stop locking onto target (prevent overshoot jitter)
     path_lock_range = 3.0,   -- 3 tiles = 48px
+    
+    -- Path Locking Maneuver (Shortcutting A* when clear)
+    path_locking = {
+       ray_offset = 10,  -- Start ray forward of center to avoid self/clutter
+       ray_margin = 4,   -- Stop ray short of target to avoid target collision overlap
+       boost = 3.0,      -- Interest bonus for locked path
+    }
   },
   
+  -- ============================================================================
+  -- BEHAVIORS SETTINGS
+  -- Specific tuning for composite behaviors
+  -- ============================================================================
+  
+  behaviors = {
+    wander = {
+       -- Angular range for wander jitter (radians, +/- from forward)
+       angle_range = math.pi / 4,
+    }
+  },
+
   -- ============================================================================
   -- MOVEMENT SETTINGS
   -- Physical movement properties
@@ -71,36 +107,38 @@ return {
     speed = 50,
     
     -- Velocity smoothing rate (higher = snappier, lower = more gradual)
-    -- Controls how fast velocity blends toward target velocity
     velocity_smoothing = 2.0,
     
     -- Turn smoothing rate (higher = tighter turns, lower = wider arcs)
     turn_smoothing = 5.0,
     
     -- Minimum speed percentage even when magnitude is low (0.0 to 1.0)
-    -- Prevents NPC from "crawling" too much in complex areas
     min_speed_bias = 0.5,
     
     -- Distance (in tiles) to consider target "reached" and stop
-    target_reached = 0.5,  -- 0.5 tiles = 8px
+    target_reached = 0.5,
+
+    -- Speed Variation (Lurching)
+    speed_noise = {
+      amount = 0.0, -- Default off
+      rate = 0.5,
+    }
   },
   
   -- ============================================================================
-  -- NOISE SETTINGS
-  -- Organic movement variation (prevents robotic movement)
+  -- NOISE SETTINGS (Wander / Swerve)
+  -- Organic movement variation
   -- ============================================================================
   
-  noise = {
-    -- Strength of noise added to steering (0.0 = none, 1.0 = full)
-    -- Higher = more wandery movement even when seeking
-    amount = 0.15,
-    
-    -- Spatial scale of noise (roughness around the direction ring)
-    -- Higher = more rapid direction changes
-    scale = 1.0,
-    
-    -- Temporal rate of noise change
-    -- Higher = faster oscillation over time
+  -- Replaces old 'noise' table
+  wander = {
+    -- Interest weight for wander behavior
+    weight = 0.3,
+
+    -- Angular range for wander jitter (radians, +/- from forward)
+    angle_range = math.pi / 4,
+
+    -- Temporal rate of noise change (swerving speed)
     rate = 0.5,
   },
   

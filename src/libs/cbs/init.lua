@@ -3,12 +3,14 @@
 -- Main API module - ties everything together
 
 local context_module = require("libs.cbs.context")
-local behaviors = require("libs.cbs.behaviors")
+local behaviors_core = require("libs.cbs.behaviors_core") -- Low level
+
 local danger_module = require("libs.cbs.danger")
 local solver_module = require("libs.cbs.solver")
 local noise_module = require("libs.cbs.noise")
 local steering_module = require("libs.cbs.steering")
 local vec2 = require("libs.cbs.vec2")
+local maneuvers_module = require("libs.cbs.maneuvers")
 
 local CBS = {}
 
@@ -39,7 +41,7 @@ end
 -- @param target_direction: vec2 {x, y} - direction to seek
 -- @param weight: number (optional) - strength multiplier (default 1.0)
 function CBS.add_seek(ctx, target_direction, weight)
-  behaviors.add_seek(ctx, target_direction, weight)
+  behaviors_core.add_seek(ctx, target_direction, weight)
 end
 
 -- Adds flee behavior - move away from target
@@ -47,7 +49,7 @@ end
 -- @param target_direction: vec2 - direction to flee from
 -- @param weight: number (optional) - strength multiplier (default 1.0)
 function CBS.add_flee(ctx, target_direction, weight)
-  behaviors.add_flee(ctx, target_direction, weight)
+  behaviors_core.add_flee(ctx, target_direction, weight)
 end
 
 -- Adds strafe behavior - move perpendicular to target with distance blending
@@ -56,7 +58,7 @@ end
 -- @param distance: number - current distance to target
 -- @param params: table (optional) - {min_range, max_range, seek_weight, flee_weight}
 function CBS.add_strafe(ctx, target_direction, distance, params)
-  behaviors.add_strafe(ctx, target_direction, distance, params)
+  behaviors_core.add_strafe(ctx, target_direction, distance, params)
 end
 
 -- Adds wander behavior - coherent meandering using noise
@@ -66,7 +68,7 @@ end
 -- @param params: table (optional) - {noise_scale, angle_range, weight}
 -- @return number - updated noise cursor (pass this back next frame)
 function CBS.add_wander(ctx, forward_direction, noise_cursor, params)
-  return behaviors.add_wander(ctx, forward_direction, noise_cursor, params)
+  return behaviors_core.add_wander(ctx, forward_direction, noise_cursor, params)
 end
 
 -- Adds tether behavior - return to spawn when too far
@@ -76,7 +78,7 @@ end
 -- @param leash_radius: number - max allowed distance
 -- @param return_weight: number (optional) - strength of pull (default 1.0)
 function CBS.add_tether(ctx, current_position, spawn_position, leash_radius, return_weight)
-  behaviors.add_tether(ctx, current_position, spawn_position, leash_radius, return_weight)
+  behaviors_core.add_tether(ctx, current_position, spawn_position, leash_radius, return_weight)
 end
 
 -- Adds massive interest boost if the path is clear (Path Locking)
@@ -84,8 +86,11 @@ end
 -- @param target_dir: vec2 - normalized direction
 -- @param boost: number (optional) - defaults to 2.0
 function CBS.add_path_locking(ctx, target_dir, boost)
-  behaviors.add_path_locking(ctx, target_dir, boost)
+  behaviors_core.add_path_locking(ctx, target_dir, boost)
 end
+
+-- EXPOSE HIGH LEVEL BEHAVIORS
+
 
 -- ============================================================================
 -- NOISE & VARIATION
@@ -140,6 +145,15 @@ end
 -- @param spread: number (optional) - how many neighboring slots to affect
 function CBS.add_directional_danger(ctx, danger_direction, danger_value, spread)
   danger_module.add_directional_danger(ctx, danger_direction, danger_value, spread)
+end
+
+-- ============================================================================
+-- MANEUVERS (Tactical Decisions)
+-- ============================================================================
+
+-- Tries to lock path if clear. Returns success, reason.
+function CBS.try_path_locking(ctx, pos, target_vec, dist, obstacles, config)
+  return maneuvers_module.try_path_locking(ctx, pos, target_vec, dist, obstacles, config)
 end
 
 -- Resolves deadlocks by biasing towards the target direction when forward is blocked

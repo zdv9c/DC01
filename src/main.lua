@@ -10,19 +10,42 @@
 
 -- 3. Load States
 local Gamestate = require "libs.hump.gamestate"
+local Slab = require "libs.Slab"
 local Play = require "states.Play"
 
-function love.load()
+local log = require "libs.log.log"
+
+function love.load(args)
+    -- Load gamepad mappings
+    local mappings_file = "gamecontrollerdb.txt"
+    if love.filesystem.getInfo(mappings_file) then
+        love.joystick.loadGamepadMappings(mappings_file)
+        log.info("Loaded gamepad mappings from " .. mappings_file)
+    else
+        log.warn("Could not find gamepad mappings file: " .. mappings_file)
+    end
+
+    Slab.Initialize(args)
     -- Switch to the Play state immediately for this proto
     Gamestate.switch(Play)
 end
 
+function love.joystickadded(joystick)
+    log.info("Joystick Added: " .. joystick:getName() .. " (GUID: " .. joystick:getGUID() .. ")")
+end
+
+function love.joystickremoved(joystick)
+    log.info("Joystick Removed: " .. joystick:getName())
+end
+
 function love.update(dt)
+    Slab.Update(dt)
     Gamestate.update(dt)
 end
 
 function love.draw()
     Gamestate.draw()
+    Slab.Draw()
 end
 
 -- Forward other callbacks to Gamestate if needed (keypressed, etc.)

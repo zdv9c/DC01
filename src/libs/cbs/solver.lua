@@ -13,8 +13,11 @@ local solver = {}
 -- Solves for final steering direction using the "Best Peak" approach
 -- Finds the slot with highest masked interest and interpolates with neighbors
 -- @param ctx: context
+-- @param params: table - {hard_mask_threshold}
 -- @return {direction = vec2, magnitude = number}
-function solver.solve(ctx)
+function solver.solve(ctx, params)
+  params = params or {}
+  local hard_mask_threshold = params.hard_mask_threshold or 0.85
   local max_value = 0
   local best_index = 0
   
@@ -28,7 +31,7 @@ function solver.solve(ctx)
     -- Hard Mask: If danger is extremely high, interest becomes 0
     -- If danger is moderate, interest is suppressed quadratically
     local mask = 1.0 - (d * d)
-    if d > 0.85 then mask = 0 end
+    if d > hard_mask_threshold then mask = 0 end
     
     local val = interest * mask
     masked_values[i] = val
@@ -97,15 +100,19 @@ end
 -- Alternative solver: simple winner-take-all (no interpolation)
 -- Faster but less smooth than interpolated solve
 -- @param ctx: context
+-- @param params: table - {hard_mask_threshold}
 -- @return {direction = vec2, magnitude = number}
-function solver.solve_simple(ctx)
+function solver.solve_simple(ctx, params)
+  params = params or {}
+  local hard_mask_threshold = params.hard_mask_threshold or 0.85
+  
   local max_value = 0.0
   local max_index = 1
 
   for i = 1, ctx.resolution do
     local d = ctx.danger[i]
     local mask = 1.0 - (d * d)
-    if d > 0.85 then mask = 0 end
+    if d > hard_mask_threshold then mask = 0 end
     
     local masked = ctx.interest[i] * mask
 

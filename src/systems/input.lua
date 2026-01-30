@@ -14,6 +14,7 @@
 
 local Concord = require "libs.Concord"
 local Baton = require "libs.baton.baton"
+local log = require "libs.log.log"
 
 local input = Concord.system({
   pool = {"PlayerControlled", "Velocity"}
@@ -27,6 +28,32 @@ local ACCELERATION_FACTOR = 10
 ----------------------------------------------------------------------------]]--
 
 function input:init()
+  local joysticks = love.joystick.getJoysticks()
+  local target_joystick = nil
+  
+  log.info("--- JOYSTICK DEBUG ---")
+  log.info("Found " .. #joysticks .. " joysticks.")
+  
+  for i, joy in ipairs(joysticks) do
+    local is_gamepad = joy:isGamepad()
+    log.info(string.format("Joystick %d: %s (GUID: %s, Gamepad: %s)", 
+      i, joy:getName(), joy:getGUID(), tostring(is_gamepad)))
+      
+    -- Select first gamepad found
+    if not target_joystick and is_gamepad then
+      target_joystick = joy
+      log.info("Selected Joystick " .. i .. " as input device.")
+    end
+  end
+  
+  -- Fallback to first joystick if no gamepad found (legacy behavior)
+  if not target_joystick and #joysticks > 0 then
+    target_joystick = joysticks[1]
+    log.info("No explicit gamepad found, falling back to Joystick 1.")
+  end
+  
+  log.info("----------------------")
+
   self.baton = Baton.new {
     controls = {
       left = {'key:left', 'key:a', 'axis:leftx-', 'button:dpleft'},
@@ -38,7 +65,7 @@ function input:init()
     pairs = {
       move = {'left', 'right', 'up', 'down'}
     },
-    joystick = love.joystick.getJoysticks()[1],
+    joystick = target_joystick,
   }
 end
 

@@ -34,18 +34,7 @@ function dev_inspector:init()
   -- Default dev_mode to true for development
   self:getWorld():setResource("dev_mode", true)
   
-  -- Visibility Toggles
-  self.viz = {
-    ui = true,          -- "dev mode" text
-    leash = true,       -- NPC leash radius
-    path = true,        -- A* path waypoints/lines
-    pruning = true,     -- LOS shortcutting visualization
-    cbs_ring = false,    -- CBS gizmo circular base
-    cbs_weights = true, -- CBS direction weight lines
-    cbs_rays = false,    -- Physical raycast hits
-    deadlock = true,    -- Deadlock resolution/side choice
-    hard_mask = true    -- Slots blocked by the Hard Mask (danger > 0.85)
-  }
+  -- NOTE: Visualization state is now managed via 'debug_gizmos' resource (DebugGUISystem)
 end
 
 function dev_inspector:keypressed(key)
@@ -54,19 +43,7 @@ function dev_inspector:keypressed(key)
     self:getWorld():setResource("dev_mode", dev_mode)
     print("[DEV] Mode: " .. (dev_mode and "ENABLED" or "DISABLED"))
   end
-  
-  -- Toggle specific gizmos with numbers 1-6
-  if self:getWorld():getResource("dev_mode") then
-    if key == "1" then self.viz.ui = not self.viz.ui; print("[DEV] UI: " .. tostring(self.viz.ui)) end
-    if key == "2" then self.viz.leash = not self.viz.leash; print("[DEV] Leash: " .. tostring(self.viz.leash)) end
-    if key == "3" then self.viz.path = not self.viz.path; print("[DEV] Path: " .. tostring(self.viz.path)) end
-    if key == "4" then self.viz.cbs_ring = not self.viz.cbs_ring; print("[DEV] CBS Ring: " .. tostring(self.viz.cbs_ring)) end
-    if key == "5" then self.viz.cbs_weights = not self.viz.cbs_weights; print("[DEV] CBS Weights: " .. tostring(self.viz.cbs_weights)) end
-    if key == "6" then self.viz.cbs_rays = not self.viz.cbs_rays; print("[DEV] CBS Rays: " .. tostring(self.viz.cbs_rays)) end
-    if key == "7" then self.viz.deadlock = not self.viz.deadlock; print("[DEV] Deadlock: " .. tostring(self.viz.deadlock)) end
-    if key == "8" then self.viz.hard_mask = not self.viz.hard_mask; print("[DEV] Hard Mask: " .. tostring(self.viz.hard_mask)) end
-    if key == "9" then self.viz.pruning = not self.viz.pruning; print("[DEV] Pruning: " .. tostring(self.viz.pruning)) end
-  end
+  -- Legacy number toggles removed; use Debug Menu (Slab)
 end
 
 function dev_inspector:update(dt)
@@ -104,18 +81,43 @@ function dev_inspector:draw()
   if not dev_mode then return end
   
   -- 1. Draw UI Overlay (Screen Space)
-  if self.viz.ui then
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.print("dev mode (1:ui 2:leash 3:path 4:ring 5:wghts 6:rays 7:dead 8:hmask 9:prune)", 10, 10)
-  end
+  -- Moved to DebugGUISystem (Slab) -- keeping simple text for now if GUI is hidden? 
+  -- Actually, let's keep the text overlay only if slab is hidden? Or remove completely as it's redundant.
+  -- Removing redundant text overlay.
+  
+  local selection = self:getWorld():getResource("debug_selection")
   
   -- 2. Draw World Gizmos (Camera Space)
   local camera = self:getWorld():getResource("camera")
   local debug_contexts = self:getWorld():getResource("ai_debug_contexts")
   
+  local viz = self:getWorld():getResource("debug_gizmos") or {}
+  
   if camera then
     camera:draw(function()
       love.graphics.setLineWidth(GIZMO_LINE_WIDTH)
+      
+      -- Draw Selection Highlight
+      if selection and selection.entities then
+        love.graphics.setColor(1, 1, 1, 0.8)
+        for _, entity in ipairs(selection.entities) do
+          if entity.Transform then
+            love.graphics.circle("line", entity.Transform.x, entity.Transform.y, 10)
+          end
+        end
+      end
+
+      -- Draw Selection Box
+      local box = self:getWorld():getResource("debug_selection_box")
+      if box and box.active then
+        love.graphics.setColor(1, 1, 1, 0.6)
+        local x = math.min(box.x1, box.x2)
+        local y = math.min(box.y1, box.y2)
+        local w = math.abs(box.x1 - box.x2)
+        local h = math.abs(box.y1 - box.y2)
+        love.graphics.rectangle("line", x, y, w, h)
+      end
+      
       for _, entity in ipairs(self.pool_ai) do
         local dbg = entity.Debug
         if dbg.enabled and dbg.track_cbs then
@@ -123,12 +125,12 @@ function dev_inspector:draw()
           local ctx = debug_contexts and debug_contexts[entity]
           local steering = entity.SteeringState
           
-          if steering and self.viz.leash then draw_leash_perimeter(steering) end
+          if steering and viz.leash then draw_leash_perimeter(steering) end
           if entity.Path then
-             if self.viz.path then draw_path_gizmo(entity.Path) end
-             if self.viz.pruning then draw_pruning_gizmo(pos, entity.Path) end
+             if viz.path then draw_path_gizmo(entity.Path) end
+             if viz.pruning then draw_pruning_gizmo(pos, entity.Path) end
           end
-          if ctx then draw_cbs_gizmo(pos.x, pos.y, ctx, steering, self.viz) end
+          if ctx then draw_cbs_gizmo(pos.x, pos.y, ctx, steering, viz) end
         end
       end
       love.graphics.setLineWidth(1) -- Reset for other systems

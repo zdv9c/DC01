@@ -113,6 +113,14 @@ trigger: always_on
 - Pure library, no world access, no callbacks
 - Each entity needing unique wander uses different `params.seed`
 
+**Slab (GUI)**:
+- Immediate mode GUI: global state managed by library
+- Initialize: `Slab.Initialize(args)` in `love.load` (or system init)
+- Update: `Slab.Update(dt)` in `love.update` (or system update)
+- Draw: `Slab.Draw()` in `love.draw` (or render system)
+- Logic: `Slab.BeginWindow`, `Slab.Button` etc. used inside UI Systems
+- Do not store Slab state in components (it's internal)
+
 ### Anti-Patterns
 - ❌ Component storing library handle (e.g., `Shape {hc_shape}`)
 - ❌ Library callback modifying world state directly
@@ -141,7 +149,8 @@ world.timer = timer.new()
 world.camera = gamera.new(0, 0, world_width, world_height)
 world.noise_shader = noise.build_shader("noise.frag", world_seed)
 world.pathfinder = jumper.pathfinder(grid, finder, walkable)
-world.ui_context = nuklear.newUI()
+world.pathfinder = jumper.pathfinder(grid, finder, walkable)
+-- Slab initialized via Slab.Initialize(args), no world object returned
 
 -- Configuration (injected to systems)
 world.config = {

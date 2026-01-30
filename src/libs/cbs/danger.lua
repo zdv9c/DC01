@@ -28,7 +28,10 @@ function danger.cast_slot_rays(ctx, origin, obstacles, config)
   
   -- Danger spread angle (±22.5° = one slot on each side for 16-slot resolution)
   -- Variable spread: Closer objects spread danger wider
-  local BASE_SPREAD = math.pi / 4  -- 45 degrees 
+  -- Danger spread angle (±22.5° = one slot on each side for 16-slot resolution)
+  -- Variable spread: Closer objects spread danger wider
+  local BASE_SPREAD = config.spread_angle or (math.pi / 4)
+  local MIN_DANGER = config.min_danger_to_spread or 0.05 
   
   local ray_results = {}
   
@@ -65,7 +68,7 @@ function danger.cast_slot_rays(ctx, origin, obstacles, config)
       
       -- Spread danger to neighboring slots
       -- Closer objects spread WIDER to prevent clipping edges
-      if danger_value > 0.05 then
+      if danger_value > MIN_DANGER then
         -- Spread up to 90 degrees total if nearly touching
         local spread_factor = 0.5 + 0.5 * danger_value
         local current_spread = BASE_SPREAD * spread_factor
@@ -173,8 +176,12 @@ end
 -- @param agent_position: vec2 - current position
 -- @param obstacles: array of vec2 positions
 -- @param danger_radius: number - how close is dangerous
-function danger.add_danger_from_proximity(ctx, agent_position, obstacles, danger_radius)
+-- @param options: table - {padding, dilation}
+function danger.add_danger_from_proximity(ctx, agent_position, obstacles, danger_radius, options)
   danger_radius = danger_radius or 50
+  options = options or {}
+  local padding = options.padding or 8
+  local dilation = options.dilation or 1.2
 
   for _, obstacle_pos in ipairs(obstacles) do
     local to_obstacle = vec2.sub(obstacle_pos, agent_position)
@@ -187,7 +194,7 @@ function danger.add_danger_from_proximity(ctx, agent_position, obstacles, danger
       -- Danger inversely proportional to distance
       -- Scale: 1.0 at 16px (collision), 0.0 at danger_radius
       -- Assume 16px is effectively "touching" (radius + radius)
-      local collision_dist = 8
+      local collision_dist = padding
       local effective_range = math.max(0.001, danger_radius - collision_dist)
       local dist_factor = math.max(0.0, distance - collision_dist) / effective_range
       -- Convex falloff: Danger stays high longer, then drops
@@ -203,7 +210,7 @@ function danger.add_danger_from_proximity(ctx, agent_position, obstacles, danger
   
   -- Apply dilation to spread danger (simulates agent width)
   -- Sigma 1.2 spreads danger but keeps 45-degree paths cleaner
-  danger.apply_dilation(ctx, 1.2)
+  danger.apply_dilation(ctx, dilation)
 end
 
 -- Adds directional danger - marks specific directions as dangerous

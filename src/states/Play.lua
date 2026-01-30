@@ -17,6 +17,7 @@ local Play = {}
 
 local CreatePlayer = require "entities.player"
 local CreateNPC = require "entities.test_npc"
+local CreateZombie = require "entities.zombie"
 local CreateBlock = require "entities.obstacle"
 
 function Play:enter()
@@ -56,7 +57,9 @@ function Play:enter()
   local DevInspectorSystem = require "systems.dev_inspector"
   local BackgroundSystem = require "systems.background"
   local RenderingSystem = require "systems.rendering"
+  local DebugGUISystem = require "systems.debug_gui"
   
+  -- Core Systems
   self.world:addSystem(InputSystem)
   self.world:addSystem(DevToolsSystem)
   self.world:addSystem(PathfindingSystem)
@@ -67,6 +70,21 @@ function Play:enter()
   self.world:addSystem(BackgroundSystem)
   self.world:addSystem(DevInspectorSystem)
   self.world:addSystem(RenderingSystem)
+  self.world:addSystem(DebugGUISystem)
+
+  -- Initialize Debug Resources
+  self.world:setResource("debug_gizmos", {
+    ui = true, leash = true, path = true, pruning = true,
+    cbs_ring = false, cbs_weights = true, cbs_rays = false,
+    deadlock = true, hard_mask = true
+  })
+  self.world:setResource("debug_tool", { mode = "none", paint_type = "Block" })
+  self.world:setResource("debug_selection", { entities = {} })
+  self.world:setResource("debug_selection_box", { active = false, x1 = 0, y1 = 0, x2 = 0, y2 = 0 })
+  
+  self.world:setResource("time_scale", 1.0)
+  self.world:setResource("simulation_paused", false)
+  self.world:setResource("single_step", false)
   
   -- Create entities
   self:createWorld()
@@ -82,10 +100,31 @@ function Play:createWorld()
   local enemy = Concord.entity(self.world)
   CreateNPC(enemy, 296, 296)
   
+  -- Create Zombie (Test Entity)
+  local zombie = Concord.entity(self.world)
+  CreateZombie(zombie, 280, 310)
+  
   -- Note: Static blocks are now managed by the persistent sandbox system (DevTools)
 end
 
 function Play:update(dt)
+  -- Handle Simulation Time
+  local paused = self.world:getResource("simulation_paused")
+  local scale = self.world:getResource("time_scale") or 1.0
+  local step = self.world:getResource("single_step")
+  
+  if paused and not step then
+    dt = 0
+  else
+    dt = dt * scale
+    if step then 
+      self.world:setResource("single_step", false) 
+      -- If stepping, we likely want a fixed small timestep or just the scaled dt? 
+      -- Let's stick to scaled dt for now, or maybe force a fixed 1/60s for consistency.
+      -- Implementation choice: use passed dt * scale but ensure it runs once.
+    end
+  end
+
   self.world:emit("update", dt)
 end
 

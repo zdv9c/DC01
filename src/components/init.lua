@@ -15,4 +15,5 @@ require "components.debug"
 require "components.steering_state"
 require "components.path"
 require "components.dev_only"
+require "components.steering_config"
 

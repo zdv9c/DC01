@@ -25,7 +25,7 @@ trigger: always_on
 
 ## Rendering
 - **Camera**: [gamera](https://github.com/kikito/gamera)
-- **GUI**: Custom (follows system pattern)
+- **GUI**: [Slab](https://github.com/flamendless/Slab)
 
 ## Procedural Generation
 - **Noise**: [love2d-noise](https://github.com/25A0/love2d-noise)
