@@ -216,6 +216,59 @@ behavior_handlers.pathfind = function(args, params)
   return finalize_movement(ctx, state, params, dt, ray_results, has_movement, new_deadlock_side)
 end
 
+behavior_handlers.seek = function(args, params)
+  local pos = args.pos
+  local state = args.behavior_state
+  local obstacles = args.obstacles
+  local radius = args.entity_radius
+  local dt = args.dt
+  local self_entity = args.self_entity
+
+  local DANGER_RANGE = (params.danger_range or 3) * TILE_SIZE
+
+  local ctx = CBS.new_context(params.resolution or 16)
+  CBS.reset_context(ctx)
+
+  local has_movement = false
+  local vec_to_target = nil
+
+  -- Pure seek towards target (no pathfinding waypoints)
+  if state.has_target then
+    local dx = state.target_x - pos.x
+    local dy = state.target_y - pos.y
+    local dist = math.sqrt(dx * dx + dy * dy)
+
+    if dist > 1 then  -- Small threshold to prevent jitter at target
+      vec_to_target = {x = dx / dist, y = dy / dist}
+      CBS.add_seek(ctx, {x = dx, y = dy}, 1.0)
+      has_movement = true
+    end
+  end
+
+  -- Raycast obstacles
+  local ignore_self = function(obs) return obs.entity ~= self_entity end
+  local ray_results = CBS.cast_slot_rays(ctx, {x = pos.x, y = pos.y}, obstacles, {
+    range = DANGER_RANGE,
+    falloff = params.danger_falloff or "linear",
+    radius = radius,
+    filter = ignore_self,
+    spread_angle = params.spread_angle,
+    min_danger_to_spread = params.min_danger_to_spread,
+  })
+
+  -- Deadlock resolution
+  local forward = {x = state.forward_x, y = state.forward_y}
+  local target_dir = vec_to_target or forward
+  local new_deadlock_side = CBS.resolve_deadlocks(
+    ctx, forward, target_dir,
+    params.deadlock_threshold or 0.25,
+    params.deadlock_bias or 0.25,
+    state.deadlock_side
+  )
+
+  return finalize_movement(ctx, state, params, dt, ray_results, has_movement, new_deadlock_side)
+end
+
 behavior_handlers.wander = function(args, params)
   local pos = args.pos
   local state = args.behavior_state

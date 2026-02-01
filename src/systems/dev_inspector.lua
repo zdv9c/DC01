@@ -243,8 +243,8 @@ function draw_current_target_gizmo(pos, behavior_state, path)
         target_x, target_y = wp.x, wp.y
       end
     end
-  elseif current_state == "flee" or current_state == "strafe" then
-    -- In flee/strafe mode: show behavior state target
+  elseif current_state == "seek" or current_state == "flee" or current_state == "strafe" then
+    -- In seek/flee/strafe mode: show behavior state target
     if behavior_state.has_target then
       target_x, target_y = behavior_state.target_x, behavior_state.target_y
     end

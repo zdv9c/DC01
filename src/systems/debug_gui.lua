@@ -41,6 +41,7 @@ local UI = {
 -- States that use targets for their behavior
 local TARGET_USING_STATES = {
   pathfind = true,
+  seek = true,
   flee = true,
   strafe = true
 }
@@ -371,7 +372,7 @@ function DebugGUI:draw_inspector_content()
 
     -- Behavior selection buttons
     Slab.Text("  Set Behavior:")
-    local behaviors = {"pathfind", "wander", "flee", "strafe", "idle"}
+    local behaviors = {"pathfind", "seek", "wander", "flee", "strafe", "idle"}
     for i, behavior in ipairs(behaviors) do
       local is_current = state.current == behavior
       if i > 1 then Slab.SameLine() end

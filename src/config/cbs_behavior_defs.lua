@@ -55,6 +55,24 @@ return {
   },
 
   --[[--------------------------------------------------------------------------
+    SEEK
+    Pure CBS pursuit towards target (no pathfinding).
+  --------------------------------------------------------------------------]]--
+  seek = {
+    speed = 50,
+    turn_smoothing = 5.0,
+    velocity_smoothing = 2.0,
+    resolution = 16,
+    danger_range = 3,              -- tiles
+    danger_falloff = "linear",
+    deadlock_threshold = 0.25,
+    deadlock_bias = 0.25,
+    hard_mask_threshold = 0.85,
+    spread_angle = math.pi / 4,
+    min_danger_to_spread = 0.05,
+  },
+
+  --[[--------------------------------------------------------------------------
     FLEE
     Rapid escape from threat.
   --------------------------------------------------------------------------]]--
