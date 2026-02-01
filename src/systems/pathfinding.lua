@@ -100,7 +100,48 @@ local function has_line_of_sight(x0, y0, x1, y1)
   return true
 end
 
+-- Check if entity can reach target via direct path (dual-ray shoulder-width check)
+-- This is ONLY for deciding whether to skip A*, NOT for A* node validation
+-- @param sx, sy: Start grid coordinates
+-- @param ex, ey: End grid coordinates
+-- @param entity_width: Entity collision width in pixels
+-- @return boolean: true if both shoulder rays are clear
+local function has_direct_path(sx, sy, ex, ey, entity_width)
+  -- Check center ray first (fast rejection)
+  if not has_line_of_sight(sx, sy, ex, ey) then
+    return false
+  end
 
+  -- Calculate perpendicular offset in grid units
+  -- entity_width is in pixels, divide by TILE_SIZE to get grid offset
+  local offset_tiles = math.ceil(entity_width / TILE_SIZE / 2)
+
+  -- Direction vector (grid space)
+  local dx = ex - sx
+  local dy = ey - sy
+  local dist = math.sqrt(dx * dx + dy * dy)
+  if dist < 0.1 then return true end  -- Same tile
+
+  -- Normalized direction
+  local dir_x = dx / dist
+  local dir_y = dy / dist
+
+  -- Perpendicular vector (rotated 90 degrees)
+  local perp_x = -dir_y
+  local perp_y = dir_x
+
+  -- Two shoulder ray start points (offset by entity half-width)
+  local s1x = math.floor(sx + perp_x * offset_tiles)
+  local s1y = math.floor(sy + perp_y * offset_tiles)
+  local s2x = math.floor(sx - perp_x * offset_tiles)
+  local s2y = math.floor(sy - perp_y * offset_tiles)
+
+  -- Check both shoulder rays
+  local ray1_clear = has_line_of_sight(s1x, s1y, ex, ey)
+  local ray2_clear = has_line_of_sight(s2x, s2y, ex, ey)
+
+  return ray1_clear and ray2_clear
+end
 
 -- Smooth a path by removing redundant waypoints (Theta* style post-processing)
 local function smooth_path(nodes)
@@ -282,7 +323,13 @@ function pathfinding:update(dt)
   for _, entity in ipairs(self.pool) do
     local path = entity.Path
     local pos = entity.Transform
-    
+    local state = entity.CBSBehaviorState
+
+    -- ONLY pathfind when in pathfind state
+    if state and state.current ~= "pathfind" then
+      goto continue
+    end
+
     -- Sync with target entity if it exists
     if path.target_entity and path.target_entity.Transform then
       if not path.final_target then path.final_target = {x=0, y=0} end
@@ -331,12 +378,23 @@ function pathfinding:update(dt)
         -- Start and goal in grid coords
         local sx, sy = world_to_grid(pos.x, pos.y)
         local ex, ey = world_to_grid(path.final_target.x, path.final_target.y)
-        
+
+        -- Check if direct path exists (dual-ray shoulder-width LOS)
+        local entity_width = entity.Collider and entity.Collider.width or 16
+        local direct_path_clear = has_direct_path(sx, sy, ex, ey, entity_width)
+
         -- Bound checks & A*
         if collision_map[sy] and collision_map[sy][sx] and collision_map[ey] and collision_map[ey][ex] then
-          -- Find path
-          -- Jumper returns a path iterator, or nil
-          local path_obj = finder_object:getPath(sx, sy, ex, ey)
+          if direct_path_clear then
+            -- Skip A* - use direct waypoint
+            path.waypoints = {{x = path.final_target.x, y = path.final_target.y}}
+            path.is_valid = true
+            path.is_finished = false
+            path.current_index = 1
+          else
+            -- Run A* normally
+            -- Jumper returns a path iterator, or nil
+            local path_obj = finder_object:getPath(sx, sy, ex, ey)
           
           if path_obj then
             path.waypoints = {}
@@ -372,6 +430,7 @@ function pathfinding:update(dt)
               print("[Pathfinding] NO PATH found from ("..sx..","..sy..") to ("..ex..","..ey..")")
             end
           end
+          end  -- End of A* else branch
         else
           -- Start or end is out of bounds
           path.is_valid = false
@@ -382,6 +441,8 @@ function pathfinding:update(dt)
       path.waypoints = {}
       path.is_valid = false
     end
+
+    ::continue::
   end
 end
 

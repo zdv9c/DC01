@@ -48,8 +48,9 @@ function Play:enter()
   
   -- Add systems in order
   local InputSystem = require "systems.input"
-  local AIMovementSystem = require "systems.ai_movement"
   local PathfindingSystem = require "systems.pathfinding"
+  local CBSTransitionsSystem = require "systems.cbs_transitions"
+  local CBSMovementSystem = require "systems.cbs_movement"
   local MovementSystem = require "systems.movement"
   local CollisionSystem = require "systems.collision"
   local CameraSystem = require "systems.camera"
@@ -58,12 +59,13 @@ function Play:enter()
   local BackgroundSystem = require "systems.background"
   local RenderingSystem = require "systems.rendering"
   local DebugGUISystem = require "systems.debug_gui"
-  
+
   -- Core Systems
   self.world:addSystem(InputSystem)
   self.world:addSystem(DevToolsSystem)
   self.world:addSystem(PathfindingSystem)
-  self.world:addSystem(AIMovementSystem)
+  self.world:addSystem(CBSTransitionsSystem)
+  self.world:addSystem(CBSMovementSystem)
   self.world:addSystem(MovementSystem)
   self.world:addSystem(CollisionSystem)
   self.world:addSystem(CameraSystem)

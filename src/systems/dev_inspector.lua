@@ -1,16 +1,16 @@
 --[[============================================================================
   SYSTEM: Dev Inspector
-  
+
   PURPOSE: Introspection system for developers. Handles visual gizmos, terminal
            logging, and the global "dev_mode" toggle.
-  
+
   DATA CONTRACT:
-    READS:  Transform, Debug, AIControlled, SteeringState, Path
+    READS:  Transform, Debug, AIControlled, CBSBehaviorState, Path
     WRITES: Debug (internal logs state), World Resource (dev_mode)
     LISTENS: keypressed (tilde to toggle dev_mode)
     EMITS:  (none)
     CONFIG: (none)
-  
+
   UPDATE ORDER: After all game logic
 ============================================================================]]--
 
@@ -19,7 +19,7 @@ local CBS = require "libs.cbs"
 
 local dev_inspector = Concord.system({
   pool_debug = {"Debug"},
-  pool_ai = {"AIControlled", "Transform", "SteeringState", "Debug", "Path"}
+  pool_ai = {"AIControlled", "Transform", "CBSBehaviorState", "Debug", "Path"}
 })
 
 local MAX_LINE_LENGTH = 48    -- 3 tiles × 16px = max line length
@@ -123,14 +123,22 @@ function dev_inspector:draw()
         if dbg.enabled and dbg.track_cbs then
           local pos = entity.Transform
           local ctx = debug_contexts and debug_contexts[entity]
-          local steering = entity.SteeringState
-          
-          if steering and viz.leash then draw_leash_perimeter(steering) end
+          local behavior_state = entity.CBSBehaviorState
+
+          -- Only draw leash when in wander mode (or blending from wander)
+          if behavior_state and viz.leash then
+            local show_leash = behavior_state.current == "wander" or behavior_state.blend_from == "wander"
+            if show_leash then draw_leash_perimeter(behavior_state) end
+          end
           if entity.Path then
              if viz.path then draw_path_gizmo(entity.Path) end
              if viz.pruning then draw_pruning_gizmo(pos, entity.Path) end
           end
-          if ctx then draw_cbs_gizmo(pos.x, pos.y, ctx, steering, viz) end
+          -- Draw current target for all target-using states
+          if viz.pruning then
+            draw_current_target_gizmo(pos, behavior_state, entity.Path)
+          end
+          if ctx then draw_cbs_gizmo(pos.x, pos.y, ctx, behavior_state, viz) end
         end
       end
       love.graphics.setLineWidth(1) -- Reset for other systems
@@ -218,6 +226,45 @@ function draw_pruning_gizmo(pos, path)
   love.graphics.line(pos.x, pos.y, target.x, target.y)
   love.graphics.circle("line", pos.x, pos.y, 4)
   love.graphics.setLineWidth(GIZMO_LINE_WIDTH)
+end
+
+function draw_current_target_gizmo(pos, behavior_state, path)
+  if not behavior_state then return end
+
+  local target_x, target_y
+  local current_state = behavior_state.current
+
+  -- Determine actual target based on state
+  if current_state == "pathfind" then
+    -- In pathfind mode: show current waypoint
+    if path and path.waypoints and #path.waypoints > 0 and path.current_index then
+      local wp = path.waypoints[path.current_index]
+      if wp then
+        target_x, target_y = wp.x, wp.y
+      end
+    end
+  elseif current_state == "flee" or current_state == "strafe" then
+    -- In flee/strafe mode: show behavior state target
+    if behavior_state.has_target then
+      target_x, target_y = behavior_state.target_x, behavior_state.target_y
+    end
+  end
+
+  -- Draw target visualization (cyan circle + green line)
+  if target_x and target_y then
+    -- Green line from entity to target
+    love.graphics.setColor(0, 1, 0, 0.6)
+    love.graphics.setLineWidth(GIZMO_LINE_WIDTH * 1.5)
+    love.graphics.line(pos.x, pos.y, target_x, target_y)
+
+    -- Cyan circle at target position
+    love.graphics.setColor(0, 1, 1, 1)
+    love.graphics.circle("fill", target_x, target_y, 5)
+    love.graphics.setColor(0, 1, 1, 0.4)
+    love.graphics.circle("line", target_x, target_y, 8)
+
+    love.graphics.setLineWidth(GIZMO_LINE_WIDTH)
+  end
 end
 
 function draw_cbs_gizmo(cx, cy, ctx, steering, viz)

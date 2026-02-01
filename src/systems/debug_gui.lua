@@ -30,8 +30,47 @@ local UI = {
   tree_cbs = true,
   tree_sim = true,
   tree_hierarchy = true,
-  filter_text = ""
+  filter_text = "",
+  instant_transitions = false
 }
+
+--[[----------------------------------------------------------------------------
+  BEHAVIOR HELPERS
+----------------------------------------------------------------------------]]--
+
+-- States that use targets for their behavior
+local TARGET_USING_STATES = {
+  pathfind = true,
+  flee = true,
+  strafe = true
+}
+
+-- Clear pathfinding waypoints (pathfind-specific data)
+local function clear_pathfind_waypoints(entity)
+  local path = entity.Path
+  if path then
+    path.waypoints = {}
+    path.is_valid = false
+    path.is_finished = true
+    path.current_index = 1
+  end
+end
+
+-- Clear target data (when transitioning to states that don't use targets)
+local function clear_target(entity)
+  local path = entity.Path
+  if path then
+    path.final_target = nil
+    path.target_entity = nil
+  end
+
+  local state = entity.CBSBehaviorState
+  if state then
+    state.has_target = false
+    state.target_x = 0
+    state.target_y = 0
+  end
+end
 
 function DebugGUI:init()
   local world = self:getWorld()
@@ -288,43 +327,137 @@ end
 function DebugGUI:draw_inspector_content()
   local selection = self:getWorld():getResource("debug_selection")
   local entities = selection.entities
-  
+
   if #entities == 0 then return end
-  
+
   if #entities > 1 then
     Slab.Text("Selection: " .. #entities .. " items")
     return
   end
-  
+
   local entity = entities[1]
   Slab.Text("PROPERTIES: " .. (entity.Debug and entity.Debug.entity_name or "Unknown"))
   Slab.Separator()
-  
+
   if entity.Transform then
     Slab.Text("Transform")
     Slab.Text(string.format("  X: %.2f", entity.Transform.x))
     Slab.Text(string.format("  Y: %.2f", entity.Transform.y))
   end
-  
+
   if entity.Velocity then
     Slab.Text("Velocity")
     Slab.Text(string.format("  X: %.2f", entity.Velocity.x))
     Slab.Text(string.format("  Y: %.2f", entity.Velocity.y))
   end
-  
-  if entity.SteeringState then
-    Slab.Text("Steering")
-    if entity.SteeringState.mode then Slab.Text("  Mode: " .. entity.SteeringState.mode) end
-    if entity.SteeringState.speed then Slab.Text(string.format("  Speed: %.1f", entity.SteeringState.speed)) end
+
+  if entity.CBSBehaviorState then
+    local state = entity.CBSBehaviorState
+    Slab.Text("CBS Behavior")
+
+    -- Current behavior with change buttons
+    local override_active = state.manual_override_until > love.timer.getTime()
+    local state_text = "  State: " .. (state.current or "none")
+    if override_active then
+      state_text = state_text .. " [MANUAL]"
+    end
+    Slab.Text(state_text)
+
+    -- Blend indicator
+    if state.blend_from and state.blend_progress < 1.0 then
+      Slab.Text(string.format("  Blending: %s -> %s (%.0f%%)",
+        state.blend_from, state.current, state.blend_progress * 100))
+    end
+
+    -- Behavior selection buttons
+    Slab.Text("  Set Behavior:")
+    local behaviors = {"pathfind", "wander", "flee", "strafe", "idle"}
+    for i, behavior in ipairs(behaviors) do
+      local is_current = state.current == behavior
+      if i > 1 then Slab.SameLine() end
+
+      local style = Slab.GetStyle()
+      local old_color = nil
+      if is_current then
+        old_color = {unpack(style.ButtonColor)}
+        style.ButtonColor = {0.2, 0.5, 0.2, 1}
+      end
+
+      if Slab.Button(behavior:sub(1,1):upper() .. behavior:sub(2,4), {W = 36, H = 20}) then
+        if not is_current then
+          -- Clear pathfinding waypoints when leaving pathfind state
+          if state.current == "pathfind" and behavior ~= "pathfind" then
+            clear_pathfind_waypoints(entity)
+          end
+
+          -- Clear target when transitioning to a state that doesn't use targets
+          if TARGET_USING_STATES[state.current] and not TARGET_USING_STATES[behavior] then
+            clear_target(entity)
+          end
+
+          -- Trigger blended transition with manual override protection
+          local now = love.timer.getTime()
+          state.blend_from = state.current
+          state.blend_progress = 0.0
+          state.blend_duration = UI.instant_transitions and 0.0 or 0.2
+          state.previous = state.current
+          state.current = behavior
+          state.last_transition_time = now
+          state.data = {}
+          -- Block automatic transitions for 30 seconds after manual override
+          state.manual_override_until = now + 30.0
+        end
+      end
+
+      if is_current and old_color then
+        style.ButtonColor = old_color
+      end
+    end
+
+    -- Instant transitions toggle for testing
+    Slab.NewLine()
+    if Slab.CheckBox(UI.instant_transitions, "Instant Transitions") then
+      UI.instant_transitions = not UI.instant_transitions
+    end
+
+    -- Speed display
+    if state.current_speed then
+      Slab.Text(string.format("  Speed: %.1f", state.current_speed))
+    end
+
+    -- Target info
+    if state.has_target then
+      Slab.Text(string.format("  Target: (%.0f, %.0f)", state.target_x, state.target_y))
+    else
+      Slab.Text("  Target: none")
+    end
+
+    -- Override debug info
+    local now = love.timer.getTime()
+    if override_active then
+      local remaining = state.manual_override_until - now
+      Slab.Text(string.format("  Override: %.1fs remaining", remaining))
+    else
+      Slab.Text("  Override: expired")
+    end
+
+    -- Last auto-transition info
+    if state.last_auto_transition then
+      local t = state.last_auto_transition
+      local age = now - t.time
+      Slab.Text(string.format("  Last auto: %s->%s (%.1fs ago)",
+        t.from, t.to, age))
+      Slab.Text(string.format("    condition: %s", tostring(t.condition)))
+    end
   end
-  
+
   if entity.Path then
     Slab.Text("Path")
     if entity.Path.waypoints then
       Slab.Text("  Waypoints: " .. #entity.Path.waypoints)
-      Slab.Text("  Idx: " .. entity.Path.current_index)
+      Slab.Text("  Idx: " .. (entity.Path.current_index or 0))
     end
-    if entity.Path.target_entity then Slab.Text("  Target: Entity") end
+    Slab.Text("  Valid: " .. tostring(entity.Path.is_valid or false))
   end
 end
 

@@ -1,38 +1,38 @@
 --[[============================================================================
   ENTITY: Test NPC
-
+  
   PURPOSE: Assembler for the test AI agent
 ============================================================================]]--
 
-local AI_CONFIG = require("config.ai_config")
+local AI_CONFIG = require "config.ai_config"
 
 return function(e, x, y)
   -- Core Physics & Transform
   e:give("Transform", x, y)
-  e:give("Velocity", 0, 0, AI_CONFIG.movement.speed, 0)
+  e:give("Velocity", 0, 0, AI_CONFIG.movement.speed, 0) -- kinematic (no friction)
   e:give("Collider", 16, 16, "dynamic")
-
-  -- Rendering (Yellow)
-  e:give("Sprite", {1, 1, 0, 1}, 8)
-
+  
+  -- Rendering
+  e:give("Sprite", {1, 1, 0, 1}, 8)  -- Yellow
+  
   -- AI Behavior
   e:give("AIControlled")
-  e:give("CBSBehaviorState", x, y, "pathfind", 42)
-  e:give("Path", x, y)
+  -- Spawn, 15-tile leash (240px), seed=42 (default hardcoded for now)
+  e:give("SteeringState", x, y, 240, 42)
+  e:give("Path", x, y)  -- Initialize path with spawn location
 
-  -- Per-entity overrides (optional)
-  e:give("CBSBehaviorConfig", {
-    pathfind = {path_lock_boost = 10},
+  e:give("SteeringConfig", {
+    --speed = 0,
+    path_lock_boost = 10
   })
-
   -- Debugging
   e:give("Debug", {
     entity_name = "Test NPC",
     track_position = false,
     track_velocity = false,
     track_collision = false,
-    track_cbs = true,
+    track_cbs = true  -- Enable CBS debug visualization
   })
-
+  
   return e
 end
