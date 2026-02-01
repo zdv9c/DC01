@@ -26,6 +26,8 @@ local pathfinding = Concord.system({
 local TILE_SIZE = AI_CONFIG.TILE_SIZE
 local MAP_WIDTH = 100 -- Default size (will expand if needed)
 local MAP_HEIGHT = 100
+local GRID_OFFSET_X = math.floor(MAP_WIDTH / 2)  -- Center grid around world (0,0)
+local GRID_OFFSET_Y = math.floor(MAP_HEIGHT / 2)
 
 -- Local state
 local grid_object = nil
@@ -37,14 +39,16 @@ local grid_dirty = true   -- Force rebuild on first frame
   HELPER FUNCTIONS
 ----------------------------------------------------------------------------]]--
 
--- Convert world coordinates to grid coordinates (1-based)
+-- Convert world coordinates to grid coordinates (1-based, centered at world 0,0)
 local function world_to_grid(x, y)
-  return math.floor(x / TILE_SIZE) + 1, math.floor(y / TILE_SIZE) + 1
+  return math.floor(x / TILE_SIZE) + GRID_OFFSET_X + 1,
+         math.floor(y / TILE_SIZE) + GRID_OFFSET_Y + 1
 end
 
 -- Convert grid coordinates to world coordinates (center of tile)
 local function grid_to_world(gx, gy)
-  return (gx - 1) * TILE_SIZE + TILE_SIZE / 2, (gy - 1) * TILE_SIZE + TILE_SIZE / 2
+  return (gx - GRID_OFFSET_X - 1) * TILE_SIZE + TILE_SIZE / 2,
+         (gy - GRID_OFFSET_Y - 1) * TILE_SIZE + TILE_SIZE / 2
 end
 
 -- Check if a grid coordinate is blocked
@@ -206,10 +210,8 @@ function pathfinding:rebuild_grid()
       -- Convert obstacle bounds to grid tiles with small epsilon to prevent edge bleeding
       -- This ensures a 16px block aligned to grid only occupies 1 tile
       local margin = 0.1
-      local min_x = math.floor((pos.x - col.width/2 + margin) / TILE_SIZE) + 1
-      local max_x = math.floor((pos.x + col.width/2 - margin) / TILE_SIZE) + 1
-      local min_y = math.floor((pos.y - col.height/2 + margin) / TILE_SIZE) + 1
-      local max_y = math.floor((pos.y + col.height/2 - margin) / TILE_SIZE) + 1
+      local min_x, min_y = world_to_grid(pos.x - col.width/2 + margin, pos.y - col.height/2 + margin)
+      local max_x, max_y = world_to_grid(pos.x + col.width/2 - margin, pos.y + col.height/2 - margin)
       
       -- Clamp to map bounds
       min_x = math.max(1, min_x); max_x = math.min(MAP_WIDTH, max_x)

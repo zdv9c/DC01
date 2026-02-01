@@ -80,6 +80,20 @@ function cbs_movement:update(dt)
       state.has_target = false
     end
 
+    -- Clear target when reached (prevent spinning at destination)
+    if state.has_target and state.current == "seek" and path then
+      local dx = state.target_x - pos.x
+      local dy = state.target_y - pos.y
+      local dist_sq = dx * dx + dy * dy
+      local REACHED_THRESHOLD = 4 -- Quarter tile
+
+      if dist_sq < REACHED_THRESHOLD * REACHED_THRESHOLD then
+        path.final_target = nil
+        path.target_entity = nil
+        state.has_target = false
+      end
+    end
+
     -- Call orchestrator
     local result = CBS_Navigation.navigate({
       pos = pos,

@@ -80,8 +80,9 @@ function dev_tools:mousepressed(x, y, button)
       box.x1, box.y1 = wx, wy
       box.x2, box.y2 = wx, wy
       self.interaction_state = 'selecting'
-    elseif button == 2 then -- Right Click: Target
+    elseif button == 2 then -- Right Click: Target (with drag support)
       self:set_target_at(wx, wy)
+      self.interaction_state = 'drag_target'
     end
   
   elseif tool.mode == "paint" then
@@ -135,6 +136,8 @@ function dev_tools:update(dt)
     self:apply_paint(gx, gy, tool.paint_type)
   elseif self.interaction_state == 'paint_remove' then
     self:apply_paint_remove(wx, wy)
+  elseif self.interaction_state == 'drag_target' then
+    self:set_target_at(wx, wy)
   elseif self.interaction_state == 'selecting' then
     local box = self:getWorld():getResource("debug_selection_box")
     box.x2, box.y2 = wx, wy

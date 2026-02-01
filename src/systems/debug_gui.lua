@@ -127,8 +127,9 @@ end
 function DebugGUI:update(dt)
   local dev_mode = self:getWorld():getResource("dev_mode")
   if not dev_mode then return end
-  
+
   self:draw_left_panel()
+  self:draw_view_options_panel()
   self:draw_right_panel()
 end
 
@@ -139,65 +140,95 @@ end
 function DebugGUI:draw_left_panel()
   local W, H = love.graphics.getDimensions()
   local PANEL_W = 208
-  
+  local PANEL_H = math.floor(H / 2)
+
   Slab.BeginWindow('LeftPanel', {
     Title = "Tools",
-    X = 0, Y = 0, W = PANEL_W, H = H,
-    AutoSizeWindow = false, AllowResize = true, AllowMove = false,
-    SizerFilter = {"E"}
+    X = 0, Y = 0, W = PANEL_W, H = PANEL_H,
+    AutoSizeWindow = false, AllowResize = false, AllowMove = false
   })
-  
+
   self:draw_simulation_controls()
   Slab.Separator()
   self:draw_tool_selector()
-  Slab.Separator()
-  self:draw_gizmo_settings()
-  
+
   Slab.EndWindow()
 end
 
 function DebugGUI:draw_simulation_controls()
-  if Slab.BeginTree('Simulation', {IsOpen = UI.tree_sim}) then
-    UI.tree_sim = true
-    local world = self:getWorld()
-    local paused = world:getResource("simulation_paused")
-    local scale = world:getResource("time_scale") or 1.0
-    
-    -- Transport Controls
-    if Slab.Button(paused and "RESUME" or "PAUSE", {W = 80}) then
-      world:setResource("simulation_paused", not paused)
-    end
-    Slab.SameLine()
-    if Slab.Button("STEP", {W = 60, Disabled = not paused}) then
-       world:setResource("single_step", true)
-    end
-    
-    Slab.NewLine()
-    Slab.Text("Time Scale: " .. string.format("%.1fx", scale))
-    if Slab.Button("0.1x", {W = 40}) then world:setResource("time_scale", 0.1) end
-    Slab.SameLine()
-    if Slab.Button("1.0x", {W = 40}) then world:setResource("time_scale", 1.0) end
-    Slab.SameLine()
-    if Slab.Button("5.0x", {W = 40}) then world:setResource("time_scale", 5.0) end
+  local world = self:getWorld()
+  local paused = world:getResource("simulation_paused")
+  local scale = world:getResource("time_scale") or 1.0
 
-    Slab.EndTree()
-  else
-    UI.tree_sim = false
+  Slab.Text("Simulation")
+
+  -- Transport Controls
+  if Slab.Button(paused and "RESUME" or "PAUSE", {W = 80}) then
+    world:setResource("simulation_paused", not paused)
   end
+  Slab.SameLine()
+  if Slab.Button("STEP", {W = 60, Disabled = not paused}) then
+     world:setResource("single_step", true)
+  end
+
+  Slab.NewLine()
+
+  -- Time Scale Selector
+  Slab.Text("Time Scale")
+  local scale_options = {0.1, 0.5, 1.0, 2.0, 5.0, 10.0}
+  local style = Slab.GetStyle()
+
+  for i, option in ipairs(scale_options) do
+    local is_current = math.abs(scale - option) < 0.01
+    -- Wrap after 3 buttons per row
+    if i > 1 and (i - 1) % 3 ~= 0 then Slab.SameLine() end
+
+    local old_color = nil
+    if is_current then
+      old_color = {unpack(style.ButtonColor)}
+      style.ButtonColor = {0.2, 0.5, 0.2, 1}
+    end
+
+    local label = string.format("%.1fx", option)
+    if Slab.Button(label, {W = 50, H = 20}) then
+      world:setResource("time_scale", option)
+    end
+
+    if is_current and old_color then
+      style.ButtonColor = old_color
+    end
+  end
+end
+
+function DebugGUI:draw_view_options_panel()
+  local W, H = love.graphics.getDimensions()
+  local PANEL_W = 208
+  local PANEL_H = math.floor(H / 2)
+  local PANEL_Y = PANEL_H
+
+  Slab.BeginWindow('ViewOptionsPanel', {
+    Title = "View Options",
+    X = 0, Y = PANEL_Y, W = PANEL_W, H = PANEL_H,
+    AutoSizeWindow = false, AllowResize = false, AllowMove = false
+  })
+
+  self:draw_gizmo_settings()
+
+  Slab.EndWindow()
 end
 
 function DebugGUI:draw_tool_selector()
   local tool = self:getWorld():getResource("debug_tool")
   local selection = self:getWorld():getResource("debug_selection")
-  
+
   Slab.Text("Active Tool")
-  
+
   -- Mode Selection (Toggle Buttons)
-  if self:private_draw_toggle("Select / Inspect", tool.mode == "select") then
+  if self:private_draw_toggle("Actor Controller", tool.mode == "select") then
     tool.mode = "select"
   end
-  
-  if self:private_draw_toggle("Paint / Spawn", tool.mode == "paint") then
+
+  if self:private_draw_toggle("Entity Painter", tool.mode == "paint") then
     tool.mode = "paint"
   end
   
@@ -232,30 +263,120 @@ end
 
 function DebugGUI:draw_gizmo_settings()
   local gizmos = self:getWorld():getResource("debug_gizmos")
-  
-  if Slab.BeginTree('View Options', {IsOpen = UI.tree_gizmos}) then
-    UI.tree_gizmos = true
-    
-    if Slab.BeginTree('Pathfinding', {IsOpen = UI.tree_path}) then
-      UI.tree_path = true
-      if Slab.CheckBox(gizmos.path, "Draw Paths") then gizmos.path = not gizmos.path end
-      if Slab.CheckBox(gizmos.pruning, "Show Pruning") then gizmos.pruning = not gizmos.pruning end
-      Slab.EndTree()
-    else UI.tree_path = false end
-    
-    if Slab.BeginTree('Steering (CBS)', {IsOpen = UI.tree_cbs}) then
-      UI.tree_cbs = true
-      if Slab.CheckBox(gizmos.cbs_ring, "Interests Ring") then gizmos.cbs_ring = not gizmos.cbs_ring end
-      if Slab.CheckBox(gizmos.cbs_weights, "Direction Weights") then gizmos.cbs_weights = not gizmos.cbs_weights end
-      if Slab.CheckBox(gizmos.cbs_rays, "Raycasts") then gizmos.cbs_rays = not gizmos.cbs_rays end
-      if Slab.CheckBox(gizmos.deadlock, "Deadlock Arrow") then gizmos.deadlock = not gizmos.deadlock end
-      if Slab.CheckBox(gizmos.hard_mask, "Hard Masks") then gizmos.hard_mask = not gizmos.hard_mask end
-      if Slab.CheckBox(gizmos.leash, "Leash Radius") then gizmos.leash = not gizmos.leash end
-      Slab.EndTree()
-    else UI.tree_cbs = false end
-    
-    Slab.EndTree()
-  else UI.tree_gizmos = false end
+  local style = Slab.GetStyle()
+
+  -- Pathfinding Section Header/Toggle
+  local any_path_on = gizmos.path or gizmos.pruning
+  local path_color = nil
+  if any_path_on then
+    path_color = {unpack(style.ButtonColor)}
+    style.ButtonColor = {0.2, 0.5, 0.2, 1}
+  end
+
+  if Slab.Button("Pathing") then
+    local new_state = not any_path_on
+    gizmos.path = new_state
+    gizmos.pruning = new_state
+  end
+
+  if path_color then style.ButtonColor = path_color end
+  Slab.Separator()
+
+  -- Draw Paths
+  local path_btn_color = nil
+  if gizmos.path then
+    path_btn_color = {unpack(style.ButtonColor)}
+    style.ButtonColor = {0.2, 0.5, 0.2, 1}
+  end
+  if Slab.Button("Draw Paths") then gizmos.path = not gizmos.path end
+  if path_btn_color then style.ButtonColor = path_btn_color end
+
+  -- Show Pruning
+  local prune_btn_color = nil
+  if gizmos.pruning then
+    prune_btn_color = {unpack(style.ButtonColor)}
+    style.ButtonColor = {0.2, 0.5, 0.2, 1}
+  end
+  if Slab.Button("Show Pruning") then gizmos.pruning = not gizmos.pruning end
+  if prune_btn_color then style.ButtonColor = prune_btn_color end
+
+  Slab.Separator()
+
+  -- CBS Section Header/Toggle
+  local any_cbs_on = gizmos.cbs_ring or gizmos.cbs_weights or gizmos.cbs_rays
+                     or gizmos.deadlock or gizmos.hard_mask or gizmos.leash
+  local cbs_color = nil
+  if any_cbs_on then
+    cbs_color = {unpack(style.ButtonColor)}
+    style.ButtonColor = {0.2, 0.5, 0.2, 1}
+  end
+
+  if Slab.Button("CBS") then
+    local new_state = not any_cbs_on
+    gizmos.cbs_ring = new_state
+    gizmos.cbs_weights = new_state
+    gizmos.cbs_rays = new_state
+    gizmos.deadlock = new_state
+    gizmos.hard_mask = new_state
+    gizmos.leash = new_state
+  end
+
+  if cbs_color then style.ButtonColor = cbs_color end
+  Slab.Separator()
+
+  -- Interests Ring
+  local ring_color = nil
+  if gizmos.cbs_ring then
+    ring_color = {unpack(style.ButtonColor)}
+    style.ButtonColor = {0.2, 0.5, 0.2, 1}
+  end
+  if Slab.Button("Interests Ring") then gizmos.cbs_ring = not gizmos.cbs_ring end
+  if ring_color then style.ButtonColor = ring_color end
+
+  -- Direction Weights
+  local weights_color = nil
+  if gizmos.cbs_weights then
+    weights_color = {unpack(style.ButtonColor)}
+    style.ButtonColor = {0.2, 0.5, 0.2, 1}
+  end
+  if Slab.Button("Direction Weights") then gizmos.cbs_weights = not gizmos.cbs_weights end
+  if weights_color then style.ButtonColor = weights_color end
+
+  -- Raycasts
+  local rays_color = nil
+  if gizmos.cbs_rays then
+    rays_color = {unpack(style.ButtonColor)}
+    style.ButtonColor = {0.2, 0.5, 0.2, 1}
+  end
+  if Slab.Button("Raycasts") then gizmos.cbs_rays = not gizmos.cbs_rays end
+  if rays_color then style.ButtonColor = rays_color end
+
+  -- Deadlock Arrow
+  local deadlock_color = nil
+  if gizmos.deadlock then
+    deadlock_color = {unpack(style.ButtonColor)}
+    style.ButtonColor = {0.2, 0.5, 0.2, 1}
+  end
+  if Slab.Button("Deadlock Arrow") then gizmos.deadlock = not gizmos.deadlock end
+  if deadlock_color then style.ButtonColor = deadlock_color end
+
+  -- Hard Masks
+  local mask_color = nil
+  if gizmos.hard_mask then
+    mask_color = {unpack(style.ButtonColor)}
+    style.ButtonColor = {0.2, 0.5, 0.2, 1}
+  end
+  if Slab.Button("Hard Masks") then gizmos.hard_mask = not gizmos.hard_mask end
+  if mask_color then style.ButtonColor = mask_color end
+
+  -- Leash Radius
+  local leash_color = nil
+  if gizmos.leash then
+    leash_color = {unpack(style.ButtonColor)}
+    style.ButtonColor = {0.2, 0.5, 0.2, 1}
+  end
+  if Slab.Button("Leash Radius") then gizmos.leash = not gizmos.leash end
+  if leash_color then style.ButtonColor = leash_color end
 end
 
 --[[----------------------------------------------------------------------------
@@ -375,7 +496,8 @@ function DebugGUI:draw_inspector_content()
     local behaviors = {"pathfind", "seek", "wander", "flee", "strafe", "idle"}
     for i, behavior in ipairs(behaviors) do
       local is_current = state.current == behavior
-      if i > 1 then Slab.SameLine() end
+      -- Wrap after 3 buttons per row
+      if i > 1 and (i - 1) % 3 ~= 0 then Slab.SameLine() end
 
       local style = Slab.GetStyle()
       local old_color = nil
@@ -384,7 +506,7 @@ function DebugGUI:draw_inspector_content()
         style.ButtonColor = {0.2, 0.5, 0.2, 1}
       end
 
-      if Slab.Button(behavior:sub(1,1):upper() .. behavior:sub(2,4), {W = 36, H = 20}) then
+      if Slab.Button(behavior:sub(1,1):upper() .. behavior:sub(2,4), {W = 50, H = 20}) then
         if not is_current then
           -- Clear pathfinding waypoints when leaving pathfind state
           if state.current == "pathfind" and behavior ~= "pathfind" then

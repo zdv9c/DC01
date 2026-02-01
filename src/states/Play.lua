@@ -80,7 +80,7 @@ function Play:enter()
     cbs_ring = false, cbs_weights = true, cbs_rays = false,
     deadlock = true, hard_mask = true
   })
-  self.world:setResource("debug_tool", { mode = "none", paint_type = "Block" })
+  self.world:setResource("debug_tool", { mode = "select", paint_type = "Block" })
   self.world:setResource("debug_selection", { entities = {} })
   self.world:setResource("debug_selection_box", { active = false, x1 = 0, y1 = 0, x2 = 0, y2 = 0 })
   
